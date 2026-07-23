@@ -1,0 +1,27 @@
+{
+  "name": "@quant-tool/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:web": "vite --host 127.0.0.1 --port 1420",
+    "build:web": "vue-tsc --noEmit && NODE_OPTIONS=--max-old-space-size=256 node node_modules/vite/bin/vite.js build",
+    "tauri": "bash scripts/with-toolchain.sh tauri",
+    "check": "vue-tsc --noEmit && pnpm test",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "vue": "3.5.40"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "@vitejs/plugin-vue": "6.0.2",
+    "@vue/test-utils": "2.4.6",
+    "jsdom": "27.0.0",
+    "typescript": "5.9.3",
+    "vite": "7.2.4",
+    "vitest": "4.0.17",
+    "vue-tsc": "3.1.4"
+  }
+}

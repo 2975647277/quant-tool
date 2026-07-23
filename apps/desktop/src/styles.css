@@ -1,0 +1,382 @@
+:root {
+  color: #dce8f6;
+  background: #07111f;
+  font-family:
+    Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 90% 0%, rgb(44 115 255 / 18%), transparent 30%),
+    linear-gradient(165deg, #0a1728 0%, #07111f 54%, #050b13 100%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 18px 18px;
+}
+
+.hero,
+.section-heading,
+.stock-heading,
+.meta-row,
+.action-row,
+.validation-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow,
+.card-label {
+  margin: 0 0 7px;
+  color: #66809e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  color: #f5f9ff;
+  font-size: 25px;
+  letter-spacing: -0.04em;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #243b55;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgb(9 23 40 / 76%);
+  color: #9cb0c7;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6c8095;
+  box-shadow: 0 0 0 4px rgb(108 128 149 / 12%);
+}
+
+.status-pill.connected {
+  border-color: rgb(39 205 143 / 32%);
+  color: #76e4b9;
+}
+
+.status-pill.connected .status-dot {
+  background: #27cd8f;
+  box-shadow: 0 0 0 4px rgb(39 205 143 / 14%);
+}
+
+.status-pill.manual {
+  border-color: rgb(245 175 66 / 35%);
+  color: #f6c36f;
+}
+
+.status-pill.manual .status-dot {
+  background: #f5af42;
+}
+
+.card,
+.notice,
+.validation-card {
+  border: 1px solid rgb(105 142 182 / 17%);
+  border-radius: 15px;
+  background: rgb(11 27 46 / 76%);
+  box-shadow:
+    0 16px 40px rgb(0 0 0 / 18%),
+    inset 0 1px rgb(255 255 255 / 3%);
+  backdrop-filter: blur(18px);
+}
+
+.card {
+  padding: 16px;
+}
+
+.stock-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stock-card::after {
+  position: absolute;
+  top: -42px;
+  right: -35px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgb(44 115 255 / 13%);
+  content: "";
+  filter: blur(2px);
+}
+
+.stock-heading {
+  position: relative;
+  z-index: 1;
+  justify-content: flex-start;
+}
+
+.stock-heading strong {
+  color: #f7fbff;
+  font-size: 25px;
+  letter-spacing: -0.03em;
+}
+
+.stock-heading span {
+  border-radius: 6px;
+  padding: 3px 7px;
+  background: #152c48;
+  color: #89a9ca;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.empty-stock {
+  padding: 7px 0;
+  color: #8297ae;
+  font-size: 15px;
+}
+
+.context-message,
+.muted,
+.notice p {
+  margin: 10px 0 0;
+  color: #8399b0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.meta-row {
+  margin-top: 15px;
+  border-top: 1px solid rgb(107 137 169 / 13%);
+  padding-top: 11px;
+  color: #5f7892;
+  font-size: 10px;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+}
+
+.notice strong,
+.section-heading strong {
+  color: #dbe8f5;
+  font-size: 13px;
+}
+
+.notice p {
+  margin-top: 4px;
+}
+
+.primary-button,
+.secondary-button,
+.refresh-button,
+.text-button {
+  border: 0;
+  border-radius: 9px;
+  padding: 9px 12px;
+  transition:
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.primary-button {
+  flex: 0 0 auto;
+  background: #2c73ff;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.secondary-button {
+  background: #19395c;
+  color: #cfe4fa;
+  font-size: 12px;
+}
+
+.refresh-button,
+.text-button {
+  padding: 5px 8px;
+  background: transparent;
+  color: #6f9fe7;
+  font-size: 11px;
+}
+
+.primary-button:active,
+.secondary-button:active {
+  transform: translateY(1px);
+}
+
+.switch {
+  width: 40px;
+  height: 23px;
+  border: 1px solid #30445b;
+  border-radius: 999px;
+  padding: 2px;
+  background: #101f30;
+}
+
+.switch span {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #657d95;
+  transition: transform 160ms ease;
+}
+
+.switch.enabled {
+  border-color: #2c73ff;
+  background: #1c4b9e;
+}
+
+.switch.enabled span {
+  background: #eaf3ff;
+  transform: translateX(17px);
+}
+
+.manual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 9px;
+}
+
+label span {
+  display: block;
+  margin: 0 0 6px;
+  color: #6d849b;
+  font-size: 10px;
+}
+
+input {
+  width: 100%;
+  border: 1px solid #243b53;
+  border-radius: 9px;
+  outline: none;
+  padding: 10px;
+  background: #091725;
+  color: #e6f1fc;
+  font-size: 12px;
+  transition: border-color 140ms ease;
+}
+
+input:focus {
+  border-color: #3c78d3;
+}
+
+input::placeholder {
+  color: #41556b;
+}
+
+.action-row {
+  justify-content: flex-start;
+  margin-top: 11px;
+}
+
+.validation-card {
+  padding: 14px 16px;
+}
+
+.validation-title {
+  color: #a9bfd5;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.validation-card ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.validation-card li {
+  position: relative;
+  padding-left: 14px;
+  color: #617890;
+  font-size: 11px;
+}
+
+.validation-card li::before {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #41556a;
+  content: "";
+}
+
+.validation-card li.done {
+  color: #9edcbc;
+}
+
+.validation-card li.done::before {
+  background: #27cd8f;
+  box-shadow: 0 0 0 3px rgb(39 205 143 / 11%);
+}
+
+.error-message {
+  margin: 0;
+  border: 1px solid rgb(248 113 113 / 25%);
+  border-radius: 9px;
+  padding: 10px;
+  background: rgb(127 29 29 / 18%);
+  color: #f5a7a7;
+  font-size: 11px;
+}
+
+footer {
+  margin-top: auto;
+  padding-top: 4px;
+  color: #445c73;
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
