@@ -32,5 +32,10 @@ describe("App", () => {
     });
     expect(wrapper.text()).toContain("001309");
     expect(wrapper.text()).toContain("本阶段不采集行情");
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+
+    await wrapper.get('[aria-label="打开设置"]').trigger("click");
+    expect(wrapper.get('[role="dialog"]').text()).toContain("实时贴靠并同步高度");
+    expect(wrapper.get('[role="dialog"]').text()).toContain("手动降级");
   });
 });

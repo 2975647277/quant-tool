@@ -48,6 +48,7 @@ button:disabled {
 }
 
 .hero,
+.hero-actions,
 .section-heading,
 .stock-heading,
 .meta-row,
@@ -57,6 +58,10 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.hero-actions {
+  gap: 8px;
 }
 
 .eyebrow,
@@ -114,6 +119,35 @@ h1 {
 
 .status-pill.manual .status-dot {
   background: #f5af42;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #243b55;
+  border-radius: 10px;
+  padding: 0;
+  background: rgb(9 23 40 / 76%);
+  color: #88a1bc;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+
+.icon-button:hover {
+  border-color: #3567a3;
+  background: #10253d;
+  color: #d5e8fb;
+}
+
+.icon-button svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
 }
 
 .card,
@@ -379,4 +413,70 @@ footer {
   font-size: 10px;
   line-height: 1.5;
   text-align: center;
+}
+
+.settings-layer {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  background: rgb(2 8 15 / 62%);
+  backdrop-filter: blur(5px);
+}
+
+.settings-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: calc(100% - 24px);
+  overflow-y: auto;
+  border-left: 1px solid rgb(105 142 182 / 22%);
+  padding: 24px 18px;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(44 115 255 / 18%), transparent 32%),
+    linear-gradient(170deg, #0c1b2e 0%, #07111f 72%);
+  box-shadow: -22px 0 50px rgb(0 0 0 / 36%);
+}
+
+.settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.settings-header h2 {
+  margin: 0;
+  color: #f3f8fe;
+  font-size: 21px;
+  letter-spacing: -0.03em;
+}
+
+.settings-section {
+  margin-top: 12px;
+  border: 1px solid rgb(105 142 182 / 17%);
+  border-radius: 15px;
+  padding: 16px;
+  background: rgb(11 27 46 / 76%);
+}
+
+.settings-enter-active,
+.settings-leave-active {
+  transition: opacity 160ms ease;
+}
+
+.settings-enter-active .settings-drawer,
+.settings-leave-active .settings-drawer {
+  transition: transform 180ms ease;
+}
+
+.settings-enter-from,
+.settings-leave-to {
+  opacity: 0;
+}
+
+.settings-enter-from .settings-drawer,
+.settings-leave-to .settings-drawer {
+  transform: translateX(22px);
 }

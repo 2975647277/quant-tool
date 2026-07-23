@@ -4,17 +4,18 @@ use std::{
     process::Command,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicI32, Ordering},
     },
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, Emitter, LogicalPosition, Manager, Position, State};
+use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position, Size, State};
 
 #[cfg(target_os = "macos")]
 use axuielement::{
     AXObserver, AXUIElement,
     ax_notification::{
+        AX_APPLICATION_ACTIVATED_NOTIFICATION, AX_APPLICATION_DEACTIVATED_NOTIFICATION,
         AX_FOCUSED_UI_ELEMENT_CHANGED_NOTIFICATION, AX_FOCUSED_WINDOW_CHANGED_NOTIFICATION,
         AX_LAYOUT_CHANGED_NOTIFICATION, AX_MAIN_WINDOW_CHANGED_NOTIFICATION,
         AX_TITLE_CHANGED_NOTIFICATION, AX_VALUE_CHANGED_NOTIFICATION, AX_WINDOW_MOVED_NOTIFICATION,
@@ -26,7 +27,11 @@ use axuielement::{
 const EASTMONEY_PROCESS_PATH: &str = "/Applications/东方财富.app/Contents/MacOS/东方财富";
 const CONTEXT_EVENT: &str = "eastmoney-context";
 const PANEL_GAP: f64 = 8.0;
-const POLL_INTERVAL: Duration = Duration::from_millis(650);
+const CONTEXT_POLL_INTERVAL: Duration = Duration::from_millis(650);
+const FRAME_SYNC_INTERVAL: Duration = Duration::from_millis(16);
+const FRAME_IDLE_INTERVAL: Duration = Duration::from_millis(100);
+const EVENT_DEBOUNCE_INTERVAL: Duration = Duration::from_millis(80);
+const MIN_PANEL_INNER_HEIGHT: f64 = 240.0;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -79,6 +84,8 @@ pub struct CompanionState {
     context: Arc<Mutex<EastmoneyContext>>,
     manual_stock: Arc<Mutex<Option<StockContext>>>,
     observer_active: Arc<AtomicBool>,
+    refresh_pending: Arc<AtomicBool>,
+    target_pid: Arc<AtomicI32>,
 }
 
 #[tauri::command]
@@ -119,7 +126,13 @@ pub fn set_follow_enabled(
         context.follow_enabled = enabled;
     }
     refresh_and_publish(&app, &state);
-    get_eastmoney_context(state)
+    let context = get_eastmoney_context(state);
+    if enabled {
+        if let Some(frame) = context.frame {
+            follow_eastmoney_window(&app, frame);
+        }
+    }
+    context
 }
 
 #[tauri::command]
@@ -154,25 +167,37 @@ pub fn clear_manual_stock(app: AppHandle, state: State<'_, CompanionState>) -> E
 }
 
 pub fn start_monitor(app: AppHandle) {
+    start_frame_tracker(app.clone());
     let monitor_app = app.clone();
     thread::spawn(move || {
         let mut observed_pid = None;
         loop {
             let current_pid = find_eastmoney_pid();
+            let state = app.try_state::<CompanionState>();
+            if let Some(state) = state.as_ref() {
+                state
+                    .target_pid
+                    .store(current_pid.unwrap_or_default(), Ordering::Release);
+            }
+
             if current_pid != observed_pid {
                 observed_pid = current_pid;
-                if let Some(state) = app.try_state::<CompanionState>() {
+                if let Some(state) = state.as_ref() {
                     state.observer_active.store(false, Ordering::Release);
                 }
-                if let Some(pid) = current_pid {
-                    start_ax_observer(app.clone(), pid);
+                if current_pid.is_none() {
+                    set_panel_layer(&app, false);
                 }
+            }
+
+            if let (Some(pid), Some(state)) = (current_pid, state.as_ref()) {
+                ensure_ax_observer(&app, state, pid);
             }
 
             if let Some(state) = monitor_app.try_state::<CompanionState>() {
                 refresh_and_publish(&monitor_app, &state);
             }
-            thread::sleep(POLL_INTERVAL);
+            thread::sleep(CONTEXT_POLL_INTERVAL);
         }
     });
 }
@@ -195,12 +220,6 @@ fn refresh_and_publish(app: &AppHandle, state: &CompanionState) {
         next.mode = "manual";
         next.stock = Some(stock);
         next.message = "当前使用手动股票代码；可随时恢复自动识别。".into();
-    }
-
-    if follow_enabled {
-        if let Some(frame) = next.frame {
-            follow_eastmoney_window(app, frame);
-        }
     }
 
     let changed = state
@@ -260,8 +279,8 @@ fn inspect_eastmoney(follow_enabled: bool, observer_active: bool) -> EastmoneyCo
         let Some(application) = AXUIElement::from_pid(pid) else {
             return inaccessible_context(follow_enabled);
         };
-        let frame = read_window_frame(&application);
         let stock = detect_stock(&application);
+        let frame = read_window_frame(&application);
         let mode = if stock.is_some() {
             "accessibility"
         } else {
@@ -396,6 +415,11 @@ fn read_window_frame(application: &AXUIElement) -> Option<WindowFrame> {
                 .into_iter()
                 .next()
         })?;
+    read_frame_from_window(&window)
+}
+
+#[cfg(target_os = "macos")]
+fn read_frame_from_window(window: &AXUIElement) -> Option<WindowFrame> {
     let position = window.point_attribute("AXPosition").ok().flatten()?;
     let size = window.size_attribute("AXSize").ok().flatten()?;
 
@@ -411,13 +435,19 @@ fn follow_eastmoney_window(app: &AppHandle, frame: WindowFrame) {
     let Some(panel) = app.get_webview_window("main") else {
         return;
     };
-    let Ok(panel_size) = panel.outer_size() else {
+    let (Ok(panel_outer_size), Ok(panel_inner_size)) = (panel.outer_size(), panel.inner_size())
+    else {
         return;
     };
     let scale = panel.scale_factor().unwrap_or(1.0);
-    let panel_width = f64::from(panel_size.width) / scale;
+    let panel_outer_width = f64::from(panel_outer_size.width) / scale;
+    let panel_outer_height = f64::from(panel_outer_size.height) / scale;
+    let panel_inner_width = f64::from(panel_inner_size.width) / scale;
+    let panel_inner_height = f64::from(panel_inner_size.height) / scale;
+    let target_inner_height =
+        matched_panel_inner_height(frame.height, panel_outer_height, panel_inner_height);
     let right_x = frame.x + frame.width + PANEL_GAP;
-    let left_x = (frame.x - panel_width - PANEL_GAP).max(0.0);
+    let left_x = (frame.x - panel_outer_width - PANEL_GAP).max(0.0);
     let target_x = panel
         .current_monitor()
         .ok()
@@ -428,7 +458,7 @@ fn follow_eastmoney_window(app: &AppHandle, frame: WindowFrame) {
             let monitor_scale = monitor.scale_factor();
             let max_x =
                 f64::from(monitor_position.x) + f64::from(monitor_size.width) / monitor_scale;
-            if right_x + panel_width <= max_x {
+            if right_x + panel_outer_width <= max_x {
                 right_x
             } else {
                 left_x
@@ -436,10 +466,29 @@ fn follow_eastmoney_window(app: &AppHandle, frame: WindowFrame) {
         })
         .unwrap_or(right_x);
 
+    let _ = panel.set_size(Size::Logical(LogicalSize::new(
+        panel_inner_width,
+        target_inner_height,
+    )));
     let _ = panel.set_position(Position::Logical(LogicalPosition::new(
         target_x,
         frame.y.max(0.0),
     )));
+}
+
+fn set_panel_layer(app: &AppHandle, follows_eastmoney_layer: bool) {
+    if let Some(panel) = app.get_webview_window("main") {
+        let _ = panel.set_always_on_top(follows_eastmoney_layer);
+    }
+}
+
+fn matched_panel_inner_height(
+    target_outer_height: f64,
+    panel_outer_height: f64,
+    panel_inner_height: f64,
+) -> f64 {
+    let decoration_height = (panel_outer_height - panel_inner_height).max(0.0);
+    (target_outer_height - decoration_height).max(MIN_PANEL_INNER_HEIGHT)
 }
 
 fn find_eastmoney_pid() -> Option<i32> {
@@ -457,24 +506,141 @@ fn find_eastmoney_pid() -> Option<i32> {
 }
 
 #[cfg(target_os = "macos")]
+fn start_frame_tracker(app: AppHandle) {
+    thread::spawn(move || {
+        let mut cached_pid = 0;
+        let mut application = None;
+        let mut last_frame = None;
+
+        loop {
+            let Some(state) = app.try_state::<CompanionState>() else {
+                thread::sleep(FRAME_IDLE_INTERVAL);
+                continue;
+            };
+            let pid = state.target_pid.load(Ordering::Acquire);
+            if pid <= 0 || !is_process_trusted() {
+                cached_pid = 0;
+                application = None;
+                last_frame = None;
+                thread::sleep(FRAME_IDLE_INTERVAL);
+                continue;
+            }
+
+            if cached_pid != pid {
+                cached_pid = pid;
+                application = AXUIElement::from_pid(pid);
+                last_frame = None;
+            }
+
+            if let Some(frame) = application.as_ref().and_then(read_window_frame) {
+                if last_frame != Some(frame) {
+                    sync_window_frame(&app, &state, frame);
+                    last_frame = Some(frame);
+                }
+            } else {
+                last_frame = None;
+            }
+
+            thread::sleep(FRAME_SYNC_INTERVAL);
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn start_frame_tracker(_app: AppHandle) {}
+
+fn sync_window_frame(app: &AppHandle, state: &CompanionState, frame: WindowFrame) {
+    let (follow_enabled, payload) = state
+        .context
+        .lock()
+        .map(|mut context| {
+            let should_emit = context.frame.is_none();
+            context.frame = Some(frame);
+            (context.follow_enabled, should_emit.then(|| context.clone()))
+        })
+        .unwrap_or((false, None));
+
+    if follow_enabled {
+        follow_eastmoney_window(app, frame);
+    }
+    if let Some(context) = payload {
+        let _ = app.emit(CONTEXT_EVENT, context);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn ensure_ax_observer(app: &AppHandle, state: &CompanionState, pid: i32) {
+    if !is_process_trusted()
+        || state
+            .observer_active
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+    {
+        return;
+    }
+    start_ax_observer(app.clone(), pid);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn ensure_ax_observer(_app: &AppHandle, _state: &CompanionState, _pid: i32) {}
+
+fn queue_context_refresh(app: &AppHandle, state: &CompanionState) {
+    if state
+        .refresh_pending
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return;
+    }
+
+    let refresh_app = app.clone();
+    thread::spawn(move || {
+        thread::sleep(EVENT_DEBOUNCE_INTERVAL);
+        if let Some(state) = refresh_app.try_state::<CompanionState>() {
+            refresh_and_publish(&refresh_app, &state);
+            thread::sleep(EVENT_DEBOUNCE_INTERVAL);
+            state.refresh_pending.store(false, Ordering::Release);
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
 fn start_ax_observer(app: AppHandle, pid: i32) {
     thread::spawn(move || {
         if !is_process_trusted() {
+            mark_observer_inactive(&app);
             return;
         }
         let Some(application) = AXUIElement::from_pid(pid) else {
+            mark_observer_inactive(&app);
             return;
         };
         let event_app = app.clone();
-        let Ok(mut observer) = AXObserver::new(pid, move |_| {
+        let Ok(mut observer) = AXObserver::new(pid, move |event| {
             if let Some(state) = event_app.try_state::<CompanionState>() {
-                refresh_and_publish(&event_app, &state);
+                match event.notification.as_str() {
+                    AX_APPLICATION_ACTIVATED_NOTIFICATION => {
+                        set_panel_layer(&event_app, true);
+                    }
+                    AX_APPLICATION_DEACTIVATED_NOTIFICATION => {
+                        set_panel_layer(&event_app, false);
+                    }
+                    AX_WINDOW_MOVED_NOTIFICATION | AX_WINDOW_RESIZED_NOTIFICATION => {
+                        if let Some(frame) = read_frame_from_window(&event.element) {
+                            sync_window_frame(&event_app, &state, frame);
+                        }
+                    }
+                    _ => queue_context_refresh(&event_app, &state),
+                }
             }
         }) else {
+            mark_observer_inactive(&app);
             return;
         };
 
         for notification in [
+            AX_APPLICATION_ACTIVATED_NOTIFICATION,
+            AX_APPLICATION_DEACTIVATED_NOTIFICATION,
             AX_FOCUSED_UI_ELEMENT_CHANGED_NOTIFICATION,
             AX_FOCUSED_WINDOW_CHANGED_NOTIFICATION,
             AX_MAIN_WINDOW_CHANGED_NOTIFICATION,
@@ -496,19 +662,24 @@ fn start_ax_observer(app: AppHandle, pid: i32) {
         }
 
         observer.schedule_on_current_run_loop();
+        set_panel_layer(&app, false);
         if let Some(state) = app.try_state::<CompanionState>() {
-            state.observer_active.store(true, Ordering::Release);
             refresh_and_publish(&app, &state);
         }
         run_current_run_loop();
-        if let Some(state) = app.try_state::<CompanionState>() {
-            state.observer_active.store(false, Ordering::Release);
-        }
+        mark_observer_inactive(&app);
     });
 }
 
 #[cfg(not(target_os = "macos"))]
 fn start_ax_observer(_app: AppHandle, _pid: i32) {}
+
+fn mark_observer_inactive(app: &AppHandle) {
+    set_panel_layer(app, false);
+    if let Some(state) = app.try_state::<CompanionState>() {
+        state.observer_active.store(false, Ordering::Release);
+    }
+}
 
 fn now_ms() -> u128 {
     SystemTime::now()
@@ -569,5 +740,10 @@ mod tests {
     fn rejects_non_six_digit_codes() {
         assert!(!is_valid_stock_code("12345"));
         assert!(!is_valid_stock_code("ABC519"));
+    }
+
+    #[test]
+    fn matches_panel_outer_height_to_eastmoney() {
+        assert_eq!(matched_panel_inner_height(800.0, 720.0, 692.0), 772.0);
     }
 }
