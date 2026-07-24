@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Quant Companion Local API",
-    "description": "仅供本机桌面伴随应用调用的 P1 模拟诊断服务。",
-    "version": "0.1.0"
+    "description": "仅供本机桌面伴随应用调用的量化诊断与研究服务。",
+    "version": "0.2.0"
   },
   "paths": {
     "/health": {
@@ -123,10 +123,94 @@
           }
         }
       }
+    },
+    "/v1/research/p3/demo": {
+      "get": {
+        "summary": "P3 Research Demo",
+        "operationId": "p3_research_demo_v1_research_p3_demo_get",
+        "parameters": [
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/P3ResearchReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "BacktestSummary": {
+        "properties": {
+          "totalReturn": {
+            "type": "number",
+            "title": "Totalreturn"
+          },
+          "maxDrawdown": {
+            "type": "number",
+            "title": "Maxdrawdown"
+          },
+          "turnover": {
+            "type": "number",
+            "title": "Turnover"
+          },
+          "transactionCount": {
+            "type": "integer",
+            "title": "Transactioncount"
+          },
+          "blockedOrderCount": {
+            "type": "integer",
+            "title": "Blockedordercount"
+          },
+          "finalEquity": {
+            "type": "number",
+            "title": "Finalequity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "totalReturn",
+          "maxDrawdown",
+          "turnover",
+          "transactionCount",
+          "blockedOrderCount",
+          "finalEquity"
+        ],
+        "title": "BacktestSummary"
+      },
       "DiagnosisResult": {
         "properties": {
           "stock": {
@@ -268,6 +352,188 @@
           "mode"
         ],
         "title": "HealthResponse"
+      },
+      "P3ResearchReport": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "simulated": {
+            "type": "boolean",
+            "title": "Simulated"
+          },
+          "dataVersion": {
+            "type": "string",
+            "title": "Dataversion"
+          },
+          "featureNames": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Featurenames"
+          },
+          "walkForwardFolds": {
+            "type": "integer",
+            "title": "Walkforwardfolds"
+          },
+          "embargoTradingDays": {
+            "type": "integer",
+            "title": "Embargotradingdays"
+          },
+          "modelResults": {
+            "items": {
+              "$ref": "#/components/schemas/RankingMetricResult"
+            },
+            "type": "array",
+            "title": "Modelresults"
+          },
+          "latestTop20": {
+            "items": {
+              "$ref": "#/components/schemas/PortfolioHoldingResult"
+            },
+            "type": "array",
+            "title": "Latesttop20"
+          },
+          "backtest": {
+            "$ref": "#/components/schemas/BacktestSummary"
+          },
+          "coveredConstraints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Coveredconstraints"
+          },
+          "defaultModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultmodel"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generatedat"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "simulated",
+          "dataVersion",
+          "featureNames",
+          "walkForwardFolds",
+          "embargoTradingDays",
+          "modelResults",
+          "latestTop20",
+          "backtest",
+          "coveredConstraints",
+          "defaultModel",
+          "generatedAt",
+          "disclaimer"
+        ],
+        "title": "P3ResearchReport"
+      },
+      "PortfolioHoldingResult": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "score",
+          "weight"
+        ],
+        "title": "PortfolioHoldingResult"
+      },
+      "RankingMetricResult": {
+        "properties": {
+          "modelVersion": {
+            "type": "string",
+            "title": "Modelversion"
+          },
+          "dataVersion": {
+            "type": "string",
+            "title": "Dataversion"
+          },
+          "predictedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Predictedat"
+          },
+          "rankIc": {
+            "type": "number",
+            "title": "Rankic"
+          },
+          "icir": {
+            "type": "number",
+            "title": "Icir"
+          },
+          "topGroupMeanExcessReturn": {
+            "type": "number",
+            "title": "Topgroupmeanexcessreturn"
+          },
+          "topGroupCumulativeExcessReturn": {
+            "type": "number",
+            "title": "Topgroupcumulativeexcessreturn"
+          },
+          "topGroupMaxDrawdown": {
+            "type": "number",
+            "title": "Topgroupmaxdrawdown"
+          },
+          "evaluatedDates": {
+            "type": "integer",
+            "title": "Evaluateddates"
+          },
+          "eligibleForDefault": {
+            "type": "boolean",
+            "title": "Eligiblefordefault"
+          },
+          "admissionReasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Admissionreasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "modelVersion",
+          "dataVersion",
+          "predictedAt",
+          "rankIc",
+          "icir",
+          "topGroupMeanExcessReturn",
+          "topGroupCumulativeExcessReturn",
+          "topGroupMaxDrawdown",
+          "evaluatedDates",
+          "eligibleForDefault",
+          "admissionReasons"
+        ],
+        "title": "RankingMetricResult"
       },
       "RiskLevel": {
         "type": "string",

@@ -55,3 +55,48 @@ class DiagnosisResult(ApiModel):
     generated_at: datetime
     simulated: bool
     disclaimer: str
+
+
+class RankingMetricResult(ApiModel):
+    model_version: str
+    data_version: str
+    predicted_at: datetime
+    rank_ic: float
+    icir: float
+    top_group_mean_excess_return: float
+    top_group_cumulative_excess_return: float
+    top_group_max_drawdown: float
+    evaluated_dates: int
+    eligible_for_default: bool
+    admission_reasons: list[str]
+
+
+class PortfolioHoldingResult(ApiModel):
+    code: str
+    score: float
+    weight: float
+
+
+class BacktestSummary(ApiModel):
+    total_return: float
+    max_drawdown: float
+    turnover: float
+    transaction_count: int
+    blocked_order_count: int
+    final_equity: float
+
+
+class P3ResearchReport(ApiModel):
+    status: str
+    simulated: bool
+    data_version: str
+    feature_names: list[str]
+    walk_forward_folds: int
+    embargo_trading_days: int
+    model_results: list[RankingMetricResult]
+    latest_top20: list[PortfolioHoldingResult]
+    backtest: BacktestSummary
+    covered_constraints: list[str]
+    default_model: str | None
+    generated_at: datetime
+    disclaimer: str

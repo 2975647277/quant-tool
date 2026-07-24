@@ -17,7 +17,7 @@ async def test_health_returns_service_mode(
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "serviceVersion": "0.1.0",
+        "serviceVersion": "0.2.0",
         "mode": "mock",
     }
 
@@ -54,3 +54,30 @@ async def test_diagnosis_rejects_invalid_code(
     )
 
     assert response.status_code == 422
+
+
+async def test_p3_demo_exposes_models_backtest_and_no_default(
+    client: AsyncClient,
+    session_headers: dict[str, str],
+) -> None:
+    response = await client.get(
+        "/v1/research/p3/demo",
+        headers=session_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["simulated"] is True
+    assert payload["walkForwardFolds"] >= 1
+    assert len(payload["modelResults"]) == 3
+    assert len(payload["latestTop20"]) == 20
+    assert payload["backtest"]["transactionCount"] > 0
+    assert payload["defaultModel"] is None
+    assert all(
+        "simulated_data_cannot_be_default" in result["admissionReasons"]
+        for result in payload["modelResults"]
+    )
+    assert all(
+        result["dataVersion"] == payload["dataVersion"] and result["predictedAt"]
+        for result in payload["modelResults"]
+    )

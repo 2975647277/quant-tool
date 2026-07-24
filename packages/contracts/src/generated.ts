@@ -38,10 +38,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/research/p3/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** P3 Research Demo */
+        get: operations["p3_research_demo_v1_research_p3_demo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BacktestSummary */
+        BacktestSummary: {
+            /** Totalreturn */
+            totalReturn: number;
+            /** Maxdrawdown */
+            maxDrawdown: number;
+            /** Turnover */
+            turnover: number;
+            /** Transactioncount */
+            transactionCount: number;
+            /** Blockedordercount */
+            blockedOrderCount: number;
+            /** Finalequity */
+            finalEquity: number;
+        };
         /** DiagnosisResult */
         DiagnosisResult: {
             stock: components["schemas"]["StockContext"];
@@ -92,6 +124,74 @@ export interface components {
             serviceVersion: string;
             /** Mode */
             mode: string;
+        };
+        /** P3ResearchReport */
+        P3ResearchReport: {
+            /** Status */
+            status: string;
+            /** Simulated */
+            simulated: boolean;
+            /** Dataversion */
+            dataVersion: string;
+            /** Featurenames */
+            featureNames: string[];
+            /** Walkforwardfolds */
+            walkForwardFolds: number;
+            /** Embargotradingdays */
+            embargoTradingDays: number;
+            /** Modelresults */
+            modelResults: components["schemas"]["RankingMetricResult"][];
+            /** Latesttop20 */
+            latestTop20: components["schemas"]["PortfolioHoldingResult"][];
+            backtest: components["schemas"]["BacktestSummary"];
+            /** Coveredconstraints */
+            coveredConstraints: string[];
+            /** Defaultmodel */
+            defaultModel: string | null;
+            /**
+             * Generatedat
+             * Format: date-time
+             */
+            generatedAt: string;
+            /** Disclaimer */
+            disclaimer: string;
+        };
+        /** PortfolioHoldingResult */
+        PortfolioHoldingResult: {
+            /** Code */
+            code: string;
+            /** Score */
+            score: number;
+            /** Weight */
+            weight: number;
+        };
+        /** RankingMetricResult */
+        RankingMetricResult: {
+            /** Modelversion */
+            modelVersion: string;
+            /** Dataversion */
+            dataVersion: string;
+            /**
+             * Predictedat
+             * Format: date-time
+             */
+            predictedAt: string;
+            /** Rankic */
+            rankIc: number;
+            /** Icir */
+            icir: number;
+            /** Topgroupmeanexcessreturn */
+            topGroupMeanExcessReturn: number;
+            /** Topgroupcumulativeexcessreturn */
+            topGroupCumulativeExcessReturn: number;
+            /** Topgroupmaxdrawdown */
+            topGroupMaxDrawdown: number;
+            /** Evaluateddates */
+            evaluatedDates: number;
+            /** Eligiblefordefault */
+            eligibleForDefault: boolean;
+            /** Admissionreasons */
+            admissionReasons: string[];
         };
         /**
          * RiskLevel
@@ -196,6 +296,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiagnosisResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    p3_research_demo_v1_research_p3_demo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Quant-Session"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P3ResearchReport"];
                 };
             };
             /** @description Validation Error */

@@ -5,7 +5,13 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 
 from . import __version__
 from .mock_diagnosis import build_mock_diagnosis
-from .models import DiagnosisResult, HealthResponse, ServiceState
+from .models import (
+    DiagnosisResult,
+    HealthResponse,
+    P3ResearchReport,
+    ServiceState,
+)
+from .research.demo import build_p3_demo_report
 
 SESSION_HEADER = "X-Quant-Session"
 _stock_code_pattern = re.compile(r"^\d{6}$")
@@ -14,7 +20,7 @@ _session_token: str | None = None
 app = FastAPI(
     title="Quant Companion Local API",
     version=__version__,
-    description="仅供本机桌面伴随应用调用的 P1 模拟诊断服务。",
+    description="仅供本机桌面伴随应用调用的量化诊断与研究服务。",
 )
 
 
@@ -57,3 +63,8 @@ def stock_diagnosis(
             detail="stock code must contain exactly 6 digits",
         )
     return build_mock_diagnosis(code, name)
+
+
+@app.get("/v1/research/p3/demo", response_model=P3ResearchReport)
+def p3_research_demo(_: Session) -> P3ResearchReport:
+    return build_p3_demo_report()
