@@ -4,6 +4,7 @@ import {
   clearManualStock,
   getEastmoneyContext,
   getQuantServiceStatus,
+  getStockChart,
   getStockResearch,
   onEastmoneyContext,
   onQuantServiceStatus,
@@ -14,20 +15,25 @@ import {
   setFollowEnabled,
   setManualStock,
 } from "./bridge";
+import TechnicalPatternChart from "./components/TechnicalPatternChart.vue";
 import type {
   EastmoneyContext,
   QuantServiceStatus,
+  StockChartView,
   StockResearchView,
 } from "./types";
 
 const context = ref<EastmoneyContext | null>(null);
 const quantStatus = ref<QuantServiceStatus | null>(null);
 const research = ref<StockResearchView | null>(null);
+const chart = ref<StockChartView | null>(null);
 const actionLoading = ref(false);
 const researchLoading = ref(false);
+const chartLoading = ref(false);
 const researchRefreshLoading = ref(false);
 const error = ref("");
 const researchError = ref("");
+const chartError = ref("");
 const researchRefreshMessage = ref("");
 const manualCode = ref("");
 const manualName = ref("");
@@ -35,6 +41,7 @@ const settingsOpen = ref(false);
 let unlistenContext: (() => void) | undefined;
 let unlistenQuantStatus: (() => void) | undefined;
 let researchRequestId = 0;
+let chartRequestId = 0;
 
 const statusLabel = computed(() => {
   switch (context.value?.mode) {
@@ -181,9 +188,32 @@ async function loadResearch() {
   }
 }
 
+async function loadChart() {
+  const stock = context.value?.stock;
+  const requestId = ++chartRequestId;
+  chart.value = null;
+  chartError.value = "";
+  chartLoading.value = false;
+  if (!stock || quantStatus.value?.state !== "ready") return;
+
+  chartLoading.value = true;
+  try {
+    const result = await getStockChart(stock.code, stock.name);
+    if (requestId === chartRequestId) chart.value = result;
+  } catch (cause) {
+    if (requestId === chartRequestId) {
+      chartError.value = String(cause);
+    }
+  } finally {
+    if (requestId === chartRequestId) chartLoading.value = false;
+  }
+}
+
 async function restartService() {
   researchError.value = "";
+  chartError.value = "";
   research.value = null;
+  chart.value = null;
   quantStatus.value = await restartQuantService();
 }
 
@@ -198,7 +228,7 @@ async function refreshResearchData() {
       stock.code,
       stock.name,
     );
-    await loadResearch();
+    await Promise.all([loadResearch(), loadChart()]);
   } catch (cause) {
     researchError.value = String(cause);
   } finally {
@@ -222,7 +252,7 @@ watch(
     const stockKey = stock ? `${stock.code}:${stock.name}` : "";
     return `${stockKey}:${quantStatus.value?.state ?? ""}`;
   },
-  () => void loadResearch(),
+  () => void Promise.all([loadResearch(), loadChart()]),
 );
 
 onMounted(async () => {
@@ -333,6 +363,31 @@ onBeforeUnmount(() => {
       >
         立即重试
       </button>
+    </section>
+
+    <TechnicalPatternChart v-if="chart" :chart="chart" />
+
+    <section
+      v-else-if="chartLoading"
+      class="card chart-loading"
+      aria-label="K线与技术形态加载中"
+    >
+      <div class="skeleton wide" />
+      <div class="skeleton chart-skeleton" />
+      <div class="skeleton" />
+    </section>
+
+    <section
+      v-else-if="
+        chartError && context?.stock && quantStatus?.state === 'ready'
+      "
+      class="notice chart-notice"
+    >
+      <div>
+        <strong>K线与技术形态暂未生成</strong>
+        <p>{{ chartError }}</p>
+      </div>
+      <button class="secondary-button" @click="loadChart">重新加载</button>
     </section>
 
     <section v-if="research" class="card diagnosis-card">

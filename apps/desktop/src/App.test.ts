@@ -24,6 +24,91 @@ vi.mock("./bridge", () => ({
     updatedAtMs: Date.now(),
   }),
   onQuantServiceStatus: vi.fn().mockResolvedValue(() => undefined),
+  getStockChart: vi.fn().mockResolvedValue({
+    stock: { code: "002463", name: "沪电股份" },
+    dataVersion: "p2-real-test",
+    startDate: "2026-07-21",
+    endDate: "2026-07-23",
+    trend: "bullish",
+    trendLabel: "趋势偏强",
+    trendSummary: "价格与中期均线结构偏多。",
+    supportPrice: 102.2,
+    resistancePrice: 119.8,
+    latestRsi14: 61.2,
+    latestMacdHistogram: 0.18,
+    points: [
+      {
+        tradeDate: "2026-07-21",
+        openPrice: 108,
+        highPrice: 112,
+        lowPrice: 107,
+        closePrice: 111,
+        volumeShares: 1000000,
+        ma5: 109,
+        ma20: 106,
+        ma60: 101,
+        rsi14: 58,
+        macd: 0.2,
+        macdSignal: 0.1,
+        macdHistogram: 0.2,
+      },
+      {
+        tradeDate: "2026-07-22",
+        openPrice: 111,
+        highPrice: 114,
+        lowPrice: 110,
+        closePrice: 113,
+        volumeShares: 1200000,
+        ma5: 110,
+        ma20: 107,
+        ma60: 102,
+        rsi14: 60,
+        macd: 0.24,
+        macdSignal: 0.14,
+        macdHistogram: 0.2,
+      },
+      {
+        tradeDate: "2026-07-23",
+        openPrice: 113,
+        highPrice: 116,
+        lowPrice: 112,
+        closePrice: 115,
+        volumeShares: 1400000,
+        ma5: 111,
+        ma20: 108,
+        ma60: 103,
+        rsi14: 61.2,
+        macd: 0.28,
+        macdSignal: 0.19,
+        macdHistogram: 0.18,
+      },
+    ],
+    patterns: [
+      {
+        kind: "double_bottom",
+        label: "双底（W形态）",
+        direction: "bullish",
+        status: "已确认",
+        confidence: 0.82,
+        summary: "两次低点接近并已突破颈线。",
+        anchors: [
+          { tradeDate: "2026-07-21", price: 107, label: "左底" },
+          { tradeDate: "2026-07-22", price: 114, label: "颈线" },
+          { tradeDate: "2026-07-23", price: 112, label: "右底" },
+        ],
+        lines: [
+          {
+            startDate: "2026-07-21",
+            startPrice: 114,
+            endDate: "2026-07-23",
+            endPrice: 114,
+            label: "颈线",
+          },
+        ],
+      },
+    ],
+    disclaimer: "技术形态仅供本地研究。",
+  }),
   getStockResearch: vi.fn().mockResolvedValue({
     stock: { code: "002463", name: "沪电股份" },
     coverage: "selected_top20",
@@ -71,6 +156,9 @@ describe("App", () => {
       expect(wrapper.text()).toContain("LightGBM 当前排名");
     });
     expect(wrapper.text()).toContain("002463");
+    expect(wrapper.text()).toContain("K线与形态");
+    expect(wrapper.text()).toContain("双底（W形态）");
+    expect(wrapper.text()).toContain("RSI14");
     expect(wrapper.text()).toContain("第 8 / 30");
     expect(wrapper.text()).toContain("2026/07/23 收盘");
     expect(wrapper.text()).toContain("2026/07/09");

@@ -175,6 +175,57 @@ pub fn get_stock_research(
 }
 
 #[tauri::command]
+pub fn get_stock_chart(
+    code: String,
+    name: String,
+    app: AppHandle,
+    state: State<'_, QuantServiceState>,
+) -> Result<Value, String> {
+    if code.len() != 6 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err("股票代码必须是 6 位数字".into());
+    }
+    if name.contains("指数") {
+        return Err("当前东方财富页面是指数，不生成个股技术形态".into());
+    }
+
+    let (endpoint, token) = state
+        .runtime
+        .lock()
+        .map_err(|_| "本地量化服务状态读取失败")?
+        .connection()
+        .ok_or("本地量化服务尚未就绪，请稍后重试")?;
+
+    let response = http_client()
+        .get(format!("{endpoint}/v1/stocks/{code}/chart"))
+        .header(SESSION_HEADER, token)
+        .query(&[("name", name.trim()), ("limit", "120")])
+        .send();
+
+    match response {
+        Ok(response) if response.status().is_success() => response
+            .json::<Value>()
+            .map_err(|error| format!("K线与技术形态解析失败：{error}")),
+        Ok(response) => {
+            let status = response.status();
+            let detail = response
+                .json::<Value>()
+                .ok()
+                .and_then(|value| value.get("detail")?.as_str().map(str::to_owned))
+                .unwrap_or_else(|| "K线与技术形态暂不可用".into());
+            Err(format!("{detail}（HTTP {status}）"))
+        }
+        Err(error) => {
+            mark_for_restart(
+                &app,
+                &state,
+                format!("本地量化服务请求失败，正在自动恢复：{error}"),
+            );
+            Err("本地量化服务暂不可用，应用正在自动恢复，请稍后重试".into())
+        }
+    }
+}
+
+#[tauri::command]
 pub async fn refresh_current_research(code: String, name: String) -> Result<String, String> {
     if code.len() != 6 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
         return Err("股票代码必须是 6 位数字".into());

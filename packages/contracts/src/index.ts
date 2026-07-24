@@ -6,6 +6,7 @@ export type CurrentSignalHolding =
 export type CurrentSignalReport = components["schemas"]["CurrentSignalReport"];
 export type DiagnosisResult = components["schemas"]["DiagnosisResult"];
 export type HealthResponse = components["schemas"]["HealthResponse"];
+export type KlinePoint = components["schemas"]["KlinePoint"];
 export type P2DataQuality = components["schemas"]["P2DataQuality"];
 export type P2DataReport = components["schemas"]["P2DataReport"];
 export type P3ResearchReport = components["schemas"]["P3ResearchReport"];
@@ -15,4 +16,12 @@ export type RankingMetricResult = components["schemas"]["RankingMetricResult"];
 export type ResearchCoverage = components["schemas"]["ResearchCoverage"];
 export type RiskLevel = components["schemas"]["RiskLevel"];
 export type ScoreDimension = components["schemas"]["ScoreDimension"];
+export type StockChartView = components["schemas"]["StockChartView"];
 export type StockResearchView = components["schemas"]["StockResearchView"];
+export type TechnicalDirection =
+  components["schemas"]["TechnicalDirection"];
+export type TechnicalPattern = components["schemas"]["TechnicalPattern"];
+export type TechnicalPatternAnchor =
+  components["schemas"]["TechnicalPatternAnchor"];
+export type TechnicalPatternLine =
+  components["schemas"]["TechnicalPatternLine"];

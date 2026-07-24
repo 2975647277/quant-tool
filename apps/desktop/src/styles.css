@@ -755,6 +755,23 @@ input::placeholder {
   gap: 14px;
 }
 
+.chart-loading {
+  display: grid;
+  min-height: 420px;
+  align-content: center;
+  gap: 14px;
+}
+
+.chart-loading .chart-skeleton {
+  height: 280px;
+  border-radius: 12px;
+}
+
+.chart-notice {
+  border-color: rgb(59 130 246 / 22%);
+  background: rgb(14 42 72 / 46%);
+}
+
 .skeleton {
   width: 100%;
   height: 11px;

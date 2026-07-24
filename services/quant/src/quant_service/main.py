@@ -15,10 +15,12 @@ from .models import (
     P3ResearchReport,
     ResearchCoverage,
     ServiceState,
+    StockChartView,
     StockContext,
     StockResearchView,
 )
 from .research.demo import build_p3_demo_report
+from .research.technical import build_stock_chart
 
 SESSION_HEADER = "X-Quant-Session"
 _stock_code_pattern = re.compile(r"^\d{6}$")
@@ -113,6 +115,48 @@ def p3_research_current(_: Session) -> CurrentSignalReport:
             detail="current daily signal not found; run pnpm research:daily",
         )
     return report
+
+
+@app.get("/v1/stocks/{code}/chart", response_model=StockChartView)
+def stock_chart(
+    code: str,
+    _: Session,
+    name: Annotated[str | None, Query(max_length=20)] = None,
+    limit: Annotated[int, Query(ge=60, le=180)] = 120,
+) -> StockChartView:
+    if not _stock_code_pattern.fullmatch(code):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="stock code must contain exactly 6 digits",
+        )
+    if name and "指数" in name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="当前东方财富页面是指数，不是个股，暂不生成技术形态",
+        )
+    store = ArtifactStore()
+    p2_report = store.load_latest_p2_report()
+    if p2_report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="K线数据不存在，请先运行 pnpm research:daily",
+        )
+    bars = store.load_stock_bars(
+        p2_report.data_version,
+        code,
+        limit=limit + 60,
+    )
+    if len(bars) < 60:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="当前股票未包含在本地日线工件中，请先更新当前日频数据",
+        )
+    return build_stock_chart(
+        stock=StockContext(code=code, name=name or code),
+        data_version=p2_report.data_version,
+        bars=bars,
+        display_limit=limit,
+    )
 
 
 @app.get("/v1/stocks/{code}/research", response_model=StockResearchView)

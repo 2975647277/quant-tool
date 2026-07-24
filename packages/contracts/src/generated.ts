@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/stocks/{code}/chart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stock Chart */
+        get: operations["stock_chart_v1_stocks__code__chart_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/stocks/{code}/research": {
         parameters: {
             query?: never;
@@ -246,6 +263,38 @@ export interface components {
             serviceVersion: string;
             /** Mode */
             mode: string;
+        };
+        /** KlinePoint */
+        KlinePoint: {
+            /**
+             * Tradedate
+             * Format: date
+             */
+            tradeDate: string;
+            /** Openprice */
+            openPrice: number;
+            /** Highprice */
+            highPrice: number;
+            /** Lowprice */
+            lowPrice: number;
+            /** Closeprice */
+            closePrice: number;
+            /** Volumeshares */
+            volumeShares: number;
+            /** Ma5 */
+            ma5: number | null;
+            /** Ma20 */
+            ma20: number | null;
+            /** Ma60 */
+            ma60: number | null;
+            /** Rsi14 */
+            rsi14: number | null;
+            /** Macd */
+            macd: number | null;
+            /** Macdsignal */
+            macdSignal: number | null;
+            /** Macdhistogram */
+            macdHistogram: number | null;
         };
         /** P2DataQuality */
         P2DataQuality: {
@@ -406,6 +455,41 @@ export interface components {
          * @enum {string}
          */
         ServiceState: "ok";
+        /** StockChartView */
+        StockChartView: {
+            stock: components["schemas"]["StockContext"];
+            /** Dataversion */
+            dataVersion: string;
+            /**
+             * Startdate
+             * Format: date
+             */
+            startDate: string;
+            /**
+             * Enddate
+             * Format: date
+             */
+            endDate: string;
+            trend: components["schemas"]["TechnicalDirection"];
+            /** Trendlabel */
+            trendLabel: string;
+            /** Trendsummary */
+            trendSummary: string;
+            /** Supportprice */
+            supportPrice: number;
+            /** Resistanceprice */
+            resistancePrice: number;
+            /** Latestrsi14 */
+            latestRsi14: number | null;
+            /** Latestmacdhistogram */
+            latestMacdHistogram: number | null;
+            /** Points */
+            points: components["schemas"]["KlinePoint"][];
+            /** Patterns */
+            patterns: components["schemas"]["TechnicalPattern"][];
+            /** Disclaimer */
+            disclaimer: string;
+        };
         /** StockContext */
         StockContext: {
             /** Code */
@@ -483,6 +567,60 @@ export interface components {
             generatedAt: string;
             /** Disclaimer */
             disclaimer: string;
+        };
+        /**
+         * TechnicalDirection
+         * @enum {string}
+         */
+        TechnicalDirection: "bullish" | "bearish" | "sideways";
+        /** TechnicalPattern */
+        TechnicalPattern: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            direction: components["schemas"]["TechnicalDirection"];
+            /** Status */
+            status: string;
+            /** Confidence */
+            confidence: number;
+            /** Summary */
+            summary: string;
+            /** Anchors */
+            anchors: components["schemas"]["TechnicalPatternAnchor"][];
+            /** Lines */
+            lines: components["schemas"]["TechnicalPatternLine"][];
+        };
+        /** TechnicalPatternAnchor */
+        TechnicalPatternAnchor: {
+            /**
+             * Tradedate
+             * Format: date
+             */
+            tradeDate: string;
+            /** Price */
+            price: number;
+            /** Label */
+            label: string;
+        };
+        /** TechnicalPatternLine */
+        TechnicalPatternLine: {
+            /**
+             * Startdate
+             * Format: date
+             */
+            startDate: string;
+            /** Startprice */
+            startPrice: number;
+            /**
+             * Enddate
+             * Format: date
+             */
+            endDate: string;
+            /** Endprice */
+            endPrice: number;
+            /** Label */
+            label: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -683,6 +821,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrentSignalReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stock_chart_v1_stocks__code__chart_get: {
+        parameters: {
+            query?: {
+                name?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-Quant-Session"?: string | null;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockChartView"];
                 };
             };
             /** @description Validation Error */

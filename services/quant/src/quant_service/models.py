@@ -159,6 +159,70 @@ class CurrentSignalReport(ApiModel):
     disclaimer: str
 
 
+class TechnicalDirection(StrEnum):
+    BULLISH = "bullish"
+    BEARISH = "bearish"
+    SIDEWAYS = "sideways"
+
+
+class KlinePoint(ApiModel):
+    trade_date: date
+    open_price: float
+    high_price: float
+    low_price: float
+    close_price: float
+    volume_shares: int
+    ma5: float | None
+    ma20: float | None
+    ma60: float | None
+    rsi14: float | None
+    macd: float | None
+    macd_signal: float | None
+    macd_histogram: float | None
+
+
+class TechnicalPatternAnchor(ApiModel):
+    trade_date: date
+    price: float
+    label: str
+
+
+class TechnicalPatternLine(ApiModel):
+    start_date: date
+    start_price: float
+    end_date: date
+    end_price: float
+    label: str
+
+
+class TechnicalPattern(ApiModel):
+    kind: str
+    label: str
+    direction: TechnicalDirection
+    status: str
+    confidence: float = Field(ge=0, le=1)
+    summary: str
+    anchors: list[TechnicalPatternAnchor]
+    lines: list[TechnicalPatternLine]
+
+
+class StockChartView(ApiModel):
+    stock: StockContext
+    data_version: str
+    start_date: date
+    end_date: date
+    trend: TechnicalDirection
+    trend_label: str
+    trend_summary: str
+    support_price: float
+    resistance_price: float
+    latest_rsi14: float | None
+    latest_macd_histogram: float | None
+    points: list[KlinePoint]
+    patterns: list[TechnicalPattern]
+    disclaimer: str
+
+
 class ResearchCoverage(StrEnum):
     SELECTED_TOP20 = "selected_top20"
     COVERED_NOT_SELECTED = "covered_not_selected"

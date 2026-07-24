@@ -21,7 +21,7 @@ async def test_health_returns_service_mode(
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "serviceVersion": "0.5.0",
+        "serviceVersion": "0.6.0",
         "mode": "current-daily-research",
     }
 
@@ -251,6 +251,49 @@ def write_research_artifacts(data_dir: Path) -> None:
         ),
         encoding="utf-8",
     )
+    closes = [10 + index * 0.02 for index in range(62)] + [
+        11.2,
+        10.4,
+        9.3,
+        8.1,
+        9.0,
+        10.2,
+        11.5,
+        10.6,
+        9.4,
+        8.2,
+        9.1,
+        10.4,
+        11.7,
+        12.1,
+        12.5,
+        12.9,
+        13.2,
+        13.5,
+    ]
+    start = date(2026, 4, 1)
+    (raw_dir / "daily-bars.jsonl").write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "trade_date": (start + timedelta(days=index)).isoformat(),
+                    "code": "000001",
+                    "open_price": close - 0.1,
+                    "high_price": close + 0.25,
+                    "low_price": close - 0.25,
+                    "close_price": close,
+                    "adjusted_close": close,
+                    "volume_shares": 1_000_000 + index * 10_000,
+                    "amount": close * (1_000_000 + index * 10_000),
+                    "turnover": 0.01,
+                    "outstanding_shares": 10_000_000_000,
+                }
+            )
+            for index, close in enumerate(closes)
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 @pytest.mark.parametrize(
@@ -317,3 +360,32 @@ async def test_current_signal_endpoint_exposes_training_and_signal_dates(
     assert payload["signalDate"] == (date.today() - timedelta(days=1)).isoformat()
     assert payload["trainingEndDate"] == "2026-07-09"
     assert len(payload["rankings"]) == 25
+
+
+async def test_stock_chart_exposes_real_bars_indicators_and_patterns(
+    client: AsyncClient,
+    session_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    write_research_artifacts(tmp_path)
+    monkeypatch.setenv("QUANT_DATA_DIR", str(tmp_path))
+
+    response = await client.get(
+        "/v1/stocks/000001/chart",
+        params={"name": "测试股票", "limit": 60},
+        headers=session_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["stock"] == {"code": "000001", "name": "测试股票"}
+    assert len(payload["points"]) == 60
+    assert payload["points"][-1]["ma5"] is not None
+    assert payload["points"][-1]["ma20"] is not None
+    assert payload["points"][-1]["ma60"] is not None
+    assert payload["latestRsi14"] is not None
+    assert payload["patterns"]
+    assert {"startDate", "startPrice", "endDate", "endPrice"}.issubset(
+        payload["patterns"][0]["lines"][0]
+    )

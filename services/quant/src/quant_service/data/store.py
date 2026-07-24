@@ -192,6 +192,41 @@ class ArtifactStore:
             return set()
         return {str(payload["code"]) for payload in _read_jsonl(path)}
 
+    def load_stock_bars(
+        self,
+        data_version: str,
+        code: str,
+        *,
+        limit: int = 250,
+    ) -> list[DailyBar]:
+        path = self.root / "raw" / data_version / "daily-bars.jsonl"
+        if not path.exists():
+            return []
+        bars: list[DailyBar] = []
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                payload = json.loads(line)
+                if str(payload.get("code")) != code:
+                    continue
+                bars.append(
+                    DailyBar(
+                        trade_date=date.fromisoformat(payload["trade_date"]),
+                        code=code,
+                        open_price=float(payload["open_price"]),
+                        high_price=float(payload["high_price"]),
+                        low_price=float(payload["low_price"]),
+                        close_price=float(payload["close_price"]),
+                        adjusted_close=float(payload["adjusted_close"]),
+                        volume_shares=int(payload["volume_shares"]),
+                        amount=float(payload["amount"]),
+                        turnover=_optional_float(payload.get("turnover")),
+                        outstanding_shares=_optional_float(payload.get("outstanding_shares")),
+                    )
+                )
+        return sorted(bars, key=lambda item: item.trade_date)[-limit:]
+
     def _latest_version(self, layer: str) -> str | None:
         pointer = self.root / layer / "latest.json"
         if not pointer.exists():

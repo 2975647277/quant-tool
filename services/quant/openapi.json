@@ -3,7 +3,7 @@
   "info": {
     "title": "Quant Companion Local API",
     "description": "仅供本机桌面伴随应用调用的量化诊断与研究服务。",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "paths": {
     "/health": {
@@ -291,6 +291,90 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CurrentSignalReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stocks/{code}/chart": {
+      "get": {
+        "summary": "Stock Chart",
+        "operationId": "stock_chart_v1_stocks__code__chart_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 180,
+              "minimum": 60,
+              "default": 120,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockChartView"
                 }
               }
             }
@@ -690,6 +774,129 @@
         ],
         "title": "HealthResponse"
       },
+      "KlinePoint": {
+        "properties": {
+          "tradeDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Tradedate"
+          },
+          "openPrice": {
+            "type": "number",
+            "title": "Openprice"
+          },
+          "highPrice": {
+            "type": "number",
+            "title": "Highprice"
+          },
+          "lowPrice": {
+            "type": "number",
+            "title": "Lowprice"
+          },
+          "closePrice": {
+            "type": "number",
+            "title": "Closeprice"
+          },
+          "volumeShares": {
+            "type": "integer",
+            "title": "Volumeshares"
+          },
+          "ma5": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ma5"
+          },
+          "ma20": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ma20"
+          },
+          "ma60": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ma60"
+          },
+          "rsi14": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsi14"
+          },
+          "macd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macd"
+          },
+          "macdSignal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macdsignal"
+          },
+          "macdHistogram": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macdhistogram"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tradeDate",
+          "openPrice",
+          "highPrice",
+          "lowPrice",
+          "closePrice",
+          "volumeShares",
+          "ma5",
+          "ma20",
+          "ma60",
+          "rsi14",
+          "macd",
+          "macdSignal",
+          "macdHistogram"
+        ],
+        "title": "KlinePoint"
+      },
       "P2DataQuality": {
         "properties": {
           "errors": {
@@ -1088,6 +1295,104 @@
         ],
         "title": "ServiceState"
       },
+      "StockChartView": {
+        "properties": {
+          "stock": {
+            "$ref": "#/components/schemas/StockContext"
+          },
+          "dataVersion": {
+            "type": "string",
+            "title": "Dataversion"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Startdate"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Enddate"
+          },
+          "trend": {
+            "$ref": "#/components/schemas/TechnicalDirection"
+          },
+          "trendLabel": {
+            "type": "string",
+            "title": "Trendlabel"
+          },
+          "trendSummary": {
+            "type": "string",
+            "title": "Trendsummary"
+          },
+          "supportPrice": {
+            "type": "number",
+            "title": "Supportprice"
+          },
+          "resistancePrice": {
+            "type": "number",
+            "title": "Resistanceprice"
+          },
+          "latestRsi14": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestrsi14"
+          },
+          "latestMacdHistogram": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestmacdhistogram"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/KlinePoint"
+            },
+            "type": "array",
+            "title": "Points"
+          },
+          "patterns": {
+            "items": {
+              "$ref": "#/components/schemas/TechnicalPattern"
+            },
+            "type": "array",
+            "title": "Patterns"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stock",
+          "dataVersion",
+          "startDate",
+          "endDate",
+          "trend",
+          "trendLabel",
+          "trendSummary",
+          "supportPrice",
+          "resistancePrice",
+          "latestRsi14",
+          "latestMacdHistogram",
+          "points",
+          "patterns",
+          "disclaimer"
+        ],
+        "title": "StockChartView"
+      },
       "StockContext": {
         "properties": {
           "code": {
@@ -1306,6 +1611,129 @@
           "disclaimer"
         ],
         "title": "StockResearchView"
+      },
+      "TechnicalDirection": {
+        "type": "string",
+        "enum": [
+          "bullish",
+          "bearish",
+          "sideways"
+        ],
+        "title": "TechnicalDirection"
+      },
+      "TechnicalPattern": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/TechnicalDirection"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "anchors": {
+            "items": {
+              "$ref": "#/components/schemas/TechnicalPatternAnchor"
+            },
+            "type": "array",
+            "title": "Anchors"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/TechnicalPatternLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "label",
+          "direction",
+          "status",
+          "confidence",
+          "summary",
+          "anchors",
+          "lines"
+        ],
+        "title": "TechnicalPattern"
+      },
+      "TechnicalPatternAnchor": {
+        "properties": {
+          "tradeDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Tradedate"
+          },
+          "price": {
+            "type": "number",
+            "title": "Price"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tradeDate",
+          "price",
+          "label"
+        ],
+        "title": "TechnicalPatternAnchor"
+      },
+      "TechnicalPatternLine": {
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Startdate"
+          },
+          "startPrice": {
+            "type": "number",
+            "title": "Startprice"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Enddate"
+          },
+          "endPrice": {
+            "type": "number",
+            "title": "Endprice"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "startDate",
+          "startPrice",
+          "endDate",
+          "endPrice",
+          "label"
+        ],
+        "title": "TechnicalPatternLine"
       },
       "ValidationError": {
         "properties": {

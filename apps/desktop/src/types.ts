@@ -1,5 +1,6 @@
 export type {
   DiagnosisResult,
+  StockChartView,
   StockResearchView,
 } from "@quant-tool/contracts";
 

@@ -4,6 +4,7 @@ import type {
   DiagnosisResult,
   EastmoneyContext,
   QuantServiceStatus,
+  StockChartView,
   StockResearchView,
 } from "./types";
 
@@ -65,6 +66,13 @@ export function getStockResearch(
   name: string,
 ): Promise<StockResearchView> {
   return invoke("get_stock_research", { code, name });
+}
+
+export function getStockChart(
+  code: string,
+  name: string,
+): Promise<StockChartView> {
+  return invoke("get_stock_chart", { code, name });
 }
 
 export function refreshCurrentResearch(
