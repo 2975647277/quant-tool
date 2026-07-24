@@ -156,8 +156,11 @@ describe("App", () => {
       expect(wrapper.text()).toContain("LightGBM 当前排名");
     });
     expect(wrapper.text()).toContain("002463");
-    expect(wrapper.text()).toContain("K线与形态");
+    expect(wrapper.text()).toContain("K线技术形态");
     expect(wrapper.text()).toContain("双底（W形态）");
+    expect(wrapper.text()).toContain("形态结构路径");
+    expect(wrapper.text()).toContain("关键节点与价格");
+    expect(wrapper.text()).toContain("收盘已站上颈线");
     expect(wrapper.text()).toContain("RSI14");
     expect(wrapper.text()).toContain("第 8 / 30");
     expect(wrapper.text()).toContain("2026/07/23 收盘");

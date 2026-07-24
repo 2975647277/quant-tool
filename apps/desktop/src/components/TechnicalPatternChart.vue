@@ -12,19 +12,19 @@ const props = defineProps<{
   chart: StockChartView;
 }>();
 
-const period = ref<60 | 120>(120);
+const period = ref<30 | 60 | 120>(60);
 const selectedPatternIndex = ref(0);
 const hoverIndex = ref<number | null>(null);
 
 const width = 360;
 const left = 10;
 const right = 45;
-const priceTop = 28;
-const priceBottom = 220;
-const volumeTop = 232;
-const volumeBottom = 270;
-const macdTop = 286;
-const macdBottom = 322;
+const priceTop = 42;
+const priceBottom = 264;
+const volumeTop = 284;
+const volumeBottom = 326;
+const macdTop = 350;
+const macdBottom = 390;
 const plotWidth = width - left - right;
 
 watch(
@@ -50,6 +50,21 @@ const displayedPoint = computed(
     points.value[hoverIndex.value ?? points.value.length - 1] ??
     props.chart.points.at(-1),
 );
+const latestPoint = computed(() => props.chart.points.at(-1));
+const structureItems = computed(() => {
+  if (activePattern.value?.anchors.length) {
+    return activePattern.value.anchors.map((anchor) => ({
+      label: anchor.label,
+      value: anchor.price,
+      date: anchor.tradeDate,
+    }));
+  }
+  return (activePattern.value?.lines ?? []).map((line) => ({
+    label: line.label,
+    value: line.endPrice,
+    date: line.endDate,
+  }));
+});
 
 const priceBounds = computed(() => {
   const values = points.value.flatMap((point) => [
@@ -169,6 +184,40 @@ function shortDate(value: string) {
   return value.slice(5).replace("-", "/");
 }
 
+function directionLabel(pattern: TechnicalPattern) {
+  switch (pattern.direction) {
+    case "bullish":
+      return "偏多结构";
+    case "bearish":
+      return "偏空结构";
+    default:
+      return "整理结构";
+  }
+}
+
+function confirmationLabel(pattern: TechnicalPattern) {
+  switch (pattern.kind) {
+    case "double_bottom":
+      return pattern.status === "已确认"
+        ? "收盘已站上颈线，W形态获得确认"
+        : "仍需收盘突破颈线，当前只属于形成阶段";
+    case "double_top":
+      return pattern.status === "已确认"
+        ? "收盘已跌破颈线，M形态获得确认"
+        : "仍需收盘跌破颈线，当前只属于形成阶段";
+    case "bullish_breakout":
+      return "收盘突破20日压力，继续观察能否回踩不破";
+    case "bearish_breakdown":
+      return "收盘跌破20日支撑，继续观察能否快速收复";
+    case "ascending_channel":
+      return "高低点同步抬升，跌破趋势支撑后结构失效";
+    case "descending_channel":
+      return "高低点同步下移，突破趋势压力后结构失效";
+    default:
+      return "价格仍在箱体内，等待放量突破支撑或压力";
+  }
+}
+
 function handlePointerMove(event: PointerEvent) {
   const target = event.currentTarget as SVGElement;
   const rect = target.getBoundingClientRect();
@@ -186,17 +235,20 @@ function handlePointerMove(event: PointerEvent) {
   <section class="technical-chart">
     <div class="chart-heading">
       <div>
-        <div class="card-label">真实日线 · 技术形态自动描绘</div>
+        <div class="card-label">真实日线结构分析</div>
         <div class="trend-title">
-          <h2>K线与形态</h2>
+          <h2>K线技术形态</h2>
           <span class="trend-badge" :class="chart.trend">
             {{ chart.trendLabel }}
           </span>
         </div>
       </div>
       <div class="period-switch" aria-label="K线显示周期">
+        <button :class="{ active: period === 30 }" @click="period = 30">
+          30
+        </button>
         <button :class="{ active: period === 60 }" @click="period = 60">
-          60日
+          60
         </button>
         <button :class="{ active: period === 120 }" @click="period = 120">
           120日
@@ -205,6 +257,25 @@ function handlePointerMove(event: PointerEvent) {
     </div>
 
     <p class="trend-summary">{{ chart.trendSummary }}</p>
+
+    <div class="structure-overview">
+      <div>
+        <span>当前收盘</span>
+        <strong>{{ money(latestPoint?.closePrice) }}</strong>
+      </div>
+      <div>
+        <span>主要形态</span>
+        <strong>{{ activePattern?.label ?? "暂未识别" }}</strong>
+      </div>
+      <div>
+        <span>20日支撑</span>
+        <strong>{{ money(chart.supportPrice) }}</strong>
+      </div>
+      <div>
+        <span>20日压力</span>
+        <strong>{{ money(chart.resistancePrice) }}</strong>
+      </div>
+    </div>
 
     <div v-if="chart.patterns.length" class="pattern-tabs">
       <button
@@ -216,22 +287,61 @@ function handlePointerMove(event: PointerEvent) {
         ]"
         @click="selectedPatternIndex = index"
       >
-        {{ pattern.label }}
+        <span>{{ pattern.label }}</span>
+        <small>{{ pattern.status }}</small>
       </button>
     </div>
 
     <div v-if="activePattern" class="pattern-callout">
-      <div>
-        <strong>{{ activePattern.label }}</strong>
-        <span>{{ activePattern.status }}</span>
+      <div class="pattern-callout-title">
+        <div>
+          <span>当前查看</span>
+          <strong>{{ activePattern.label }}</strong>
+        </div>
+        <b :class="activePattern.direction">
+          {{ directionLabel(activePattern) }}
+        </b>
       </div>
-      <b>{{ Math.round(activePattern.confidence * 100) }}% 规则匹配</b>
       <p>{{ activePattern.summary }}</p>
+      <div class="confirmation-row">
+        <span>{{ activePattern.status }}</span>
+        <strong>{{ confirmationLabel(activePattern) }}</strong>
+      </div>
+    </div>
+
+    <div v-if="activePattern && structureItems.length" class="structure-detail">
+      <div class="structure-detail-heading">
+        <div>
+          <span>形态结构路径</span>
+          <strong>关键节点与价格</strong>
+        </div>
+        <b>{{ Math.round(activePattern.confidence * 100) }}% 规则匹配</b>
+      </div>
+      <div class="structure-steps">
+        <template v-for="(item, index) in structureItems" :key="`${item.label}-${item.date}`">
+          <div class="structure-step">
+            <i>{{ index + 1 }}</i>
+            <div>
+              <span>{{ item.label }}</span>
+              <strong>{{ money(item.value) }}</strong>
+              <small>{{ shortDate(item.date) }}</small>
+            </div>
+          </div>
+          <span v-if="index < structureItems.length - 1" class="step-arrow">→</span>
+        </template>
+      </div>
     </div>
 
     <div class="chart-readout">
-      <span>{{ displayedPoint ? shortDate(displayedPoint.tradeDate) : "--" }}</span>
+      <strong>{{
+        displayedPoint ? shortDate(displayedPoint.tradeDate) : "--"
+      }}</strong>
+      <span>开 {{ money(displayedPoint?.openPrice) }}</span>
+      <span>高 {{ money(displayedPoint?.highPrice) }}</span>
+      <span>低 {{ money(displayedPoint?.lowPrice) }}</span>
       <span>收 {{ money(displayedPoint?.closePrice) }}</span>
+    </div>
+    <div class="average-legend">
       <span class="ma5">MA5 {{ money(displayedPoint?.ma5) }}</span>
       <span class="ma20">MA20 {{ money(displayedPoint?.ma20) }}</span>
       <span class="ma60">MA60 {{ money(displayedPoint?.ma60) }}</span>
@@ -239,7 +349,7 @@ function handlePointerMove(event: PointerEvent) {
 
     <svg
       class="kline-svg"
-      :viewBox="`0 0 ${width} 332`"
+      :viewBox="`0 0 ${width} 402`"
       role="img"
       :aria-label="`${chart.stock.name} K线和${activePattern?.label ?? '技术形态'}`"
       @pointermove="handlePointerMove"
@@ -398,7 +508,7 @@ function handlePointerMove(event: PointerEvent) {
           v-for="index in [0, Math.floor((points.length - 1) / 2), points.length - 1]"
           :key="index"
         >
-          <text :x="x(index)" y="330" text-anchor="middle">
+          <text :x="x(index)" y="400" text-anchor="middle">
             {{ shortDate(points[index].tradeDate) }}
           </text>
         </template>
@@ -438,18 +548,19 @@ function handlePointerMove(event: PointerEvent) {
 <style scoped>
 .technical-chart {
   overflow: hidden;
-  border: 1px solid rgb(105 142 182 / 17%);
-  border-radius: 15px;
-  padding: 15px 12px 13px;
+  border: 1px solid rgb(107 155 204 / 22%);
+  border-radius: 17px;
+  padding: 17px 14px 15px;
   background:
-    radial-gradient(circle at 85% 0%, rgb(44 115 255 / 12%), transparent 34%),
-    rgb(9 23 39 / 82%);
-  box-shadow: inset 0 1px rgb(255 255 255 / 3%);
+    radial-gradient(circle at 90% 0%, rgb(49 119 255 / 16%), transparent 32%),
+    linear-gradient(165deg, rgb(12 31 52 / 96%), rgb(6 18 31 / 96%));
+  box-shadow:
+    0 16px 38px rgb(0 0 0 / 16%),
+    inset 0 1px rgb(255 255 255 / 4%);
 }
 
 .chart-heading,
 .trend-title,
-.pattern-callout > div,
 .chart-readout {
   display: flex;
   align-items: center;
@@ -461,9 +572,9 @@ function handlePointerMove(event: PointerEvent) {
 }
 
 .card-label {
-  margin: 0 0 6px;
-  color: #66809e;
-  font-size: 9px;
+  margin: 0 0 7px;
+  color: #7691ad;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -476,14 +587,14 @@ function handlePointerMove(event: PointerEvent) {
 h2 {
   margin: 0;
   color: #edf6ff;
-  font-size: 17px;
-  letter-spacing: -0.025em;
+  font-size: 19px;
+  letter-spacing: -0.035em;
 }
 
 .trend-badge {
   border-radius: 999px;
-  padding: 3px 7px;
-  font-size: 9px;
+  padding: 4px 8px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -506,8 +617,8 @@ h2 {
   display: flex;
   border: 1px solid #223b54;
   border-radius: 8px;
-  padding: 2px;
-  background: #081522;
+  padding: 3px;
+  background: #071522;
 }
 
 .period-switch button,
@@ -520,27 +631,70 @@ h2 {
 
 .period-switch button {
   border-radius: 6px;
-  padding: 5px 7px;
+  padding: 6px 7px;
   background: transparent;
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .period-switch button.active {
-  background: #17395d;
-  color: #d6e8fa;
+  background: #205487;
+  color: #f0f7ff;
 }
 
 .trend-summary {
-  margin: 8px 0 0;
-  color: #71879d;
+  margin: 10px 0 0;
+  color: #879eb5;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.structure-overview {
+  display: grid;
+  margin-top: 13px;
+  border: 1px solid rgb(105 151 194 / 18%);
+  border-radius: 12px;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+}
+
+.structure-overview > div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: rgb(6 19 33 / 48%);
+}
+
+.structure-overview > div:nth-child(odd) {
+  border-right: 1px solid rgb(105 151 194 / 15%);
+}
+
+.structure-overview > div:nth-child(-n + 2) {
+  border-bottom: 1px solid rgb(105 151 194 / 15%);
+}
+
+.structure-overview span,
+.structure-overview strong {
+  display: block;
+}
+
+.structure-overview span {
+  color: #678099;
   font-size: 9px;
-  line-height: 1.5;
+}
+
+.structure-overview strong {
+  margin-top: 5px;
+  overflow: hidden;
+  color: #dce9f6;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pattern-tabs {
   display: flex;
-  gap: 6px;
-  margin-top: 11px;
+  gap: 7px;
+  margin-top: 13px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -550,11 +704,23 @@ h2 {
 }
 
 .pattern-tabs button {
+  display: grid;
+  gap: 2px;
   flex: 0 0 auto;
-  border: 1px solid #213b55;
-  border-radius: 999px;
-  padding: 5px 8px;
+  border: 1px solid #28445f;
+  border-radius: 10px;
+  padding: 7px 10px;
   background: rgb(8 21 34 / 78%);
+  font-size: 10px;
+  text-align: left;
+}
+
+.pattern-tabs button span {
+  font-weight: 700;
+}
+
+.pattern-tabs button small {
+  color: #647d95;
   font-size: 9px;
 }
 
@@ -577,69 +743,229 @@ h2 {
 }
 
 .pattern-callout {
-  position: relative;
-  margin-top: 9px;
-  border-left: 2px solid #3d7ec5;
-  border-radius: 0 8px 8px 0;
-  padding: 8px 9px;
-  background: rgb(17 43 70 / 48%);
+  margin-top: 10px;
+  border: 1px solid rgb(80 136 194 / 24%);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgb(18 47 76 / 48%);
 }
 
-.pattern-callout > div {
-  gap: 7px;
+.pattern-callout-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.pattern-callout strong {
-  color: #cfe0f0;
-  font-size: 10px;
+.pattern-callout-title > div span,
+.pattern-callout-title > div strong {
+  display: block;
 }
 
-.pattern-callout span,
-.pattern-callout b {
-  color: #738ba2;
-  font-size: 8px;
+.pattern-callout-title > div span {
+  color: #708aa3;
+  font-size: 9px;
 }
 
-.pattern-callout b {
-  position: absolute;
-  top: 9px;
-  right: 9px;
-  font-weight: 600;
+.pattern-callout-title > div strong {
+  margin-top: 4px;
+  color: #e1edf8;
+  font-size: 13px;
+}
+
+.pattern-callout-title > b {
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 9px;
+}
+
+.pattern-callout-title > b.bullish {
+  background: rgb(255 91 112 / 12%);
+  color: #ff9cac;
+}
+
+.pattern-callout-title > b.bearish {
+  background: rgb(49 214 160 / 12%);
+  color: #76dfbd;
+}
+
+.pattern-callout-title > b.sideways {
+  background: rgb(245 175 66 / 12%);
+  color: #efbe6c;
 }
 
 .pattern-callout p {
-  margin: 5px 0 0;
-  color: #8199b0;
+  margin: 9px 0 0;
+  color: #93a9bd;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.confirmation-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  border-top: 1px solid rgb(107 150 190 / 15%);
+  padding-top: 9px;
+}
+
+.confirmation-row span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: #183b5c;
+  color: #9cc4ea;
   font-size: 9px;
+}
+
+.confirmation-row strong {
+  color: #a9bed2;
+  font-size: 10px;
+  font-weight: 550;
   line-height: 1.45;
 }
 
-.chart-readout {
-  gap: 8px;
-  margin-top: 11px;
-  overflow: hidden;
-  color: #8298ae;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 7.5px;
-  white-space: nowrap;
+.structure-detail {
+  margin-top: 10px;
+  border: 1px solid rgb(105 151 194 / 18%);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgb(5 17 30 / 55%);
 }
 
-.chart-readout .ma5 {
+.structure-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.structure-detail-heading span,
+.structure-detail-heading strong {
+  display: block;
+}
+
+.structure-detail-heading span {
+  color: #667f98;
+  font-size: 9px;
+}
+
+.structure-detail-heading strong {
+  margin-top: 3px;
+  color: #c9d9e9;
+  font-size: 11px;
+}
+
+.structure-detail-heading b {
+  color: #7fa7cd;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.structure-steps {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.structure-steps::-webkit-scrollbar {
+  display: none;
+}
+
+.structure-step {
+  display: flex;
+  min-width: 80px;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.structure-step i {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #2c6599;
+  border-radius: 50%;
+  background: #113657;
+  color: #a9d4f8;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.structure-step div span,
+.structure-step div strong,
+.structure-step div small {
+  display: block;
+}
+
+.structure-step div span {
+  color: #8299af;
+  font-size: 9px;
+}
+
+.structure-step div strong {
+  margin-top: 3px;
+  color: #e0ebf6;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+
+.structure-step div small {
+  margin-top: 2px;
+  color: #506a82;
+  font-size: 9px;
+}
+
+.step-arrow {
+  flex: 0 0 auto;
+  color: #3e668b;
+  font-size: 13px;
+}
+
+.chart-readout {
+  display: grid;
+  margin-top: 14px;
+  color: #91a7bb;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  grid-template-columns: 1.2fr repeat(4, 1fr);
+}
+
+.chart-readout strong {
+  color: #d8e7f5;
+}
+
+.average-legend {
+  display: flex;
+  gap: 13px;
+  margin-top: 7px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+}
+
+.average-legend .ma5 {
   color: #f1bf58;
 }
 
-.chart-readout .ma20 {
+.average-legend .ma20 {
   color: #5aabff;
 }
 
-.chart-readout .ma60 {
+.average-legend .ma60 {
   color: #bd84ff;
 }
 
 .kline-svg {
   display: block;
   width: 100%;
-  margin-top: 2px;
+  margin-top: 5px;
   overflow: visible;
   touch-action: none;
 }
@@ -655,9 +981,9 @@ h2 {
 .price-grid text,
 .panel-label,
 .date-axis text {
-  fill: #506b83;
+  fill: #6e879e;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 6.5px;
+  font-size: 9.5px;
 }
 
 .candles line,
@@ -689,7 +1015,7 @@ h2 {
 
 .ma-line {
   fill: none;
-  stroke-width: 1;
+  stroke-width: 1.25;
   vector-effect: non-scaling-stroke;
 }
 
@@ -707,17 +1033,17 @@ h2 {
 
 .pattern-overlay line {
   fill: none;
-  stroke-width: 1.25;
-  stroke-dasharray: 4 3;
+  stroke-width: 1.8;
+  stroke-dasharray: 5 3;
   vector-effect: non-scaling-stroke;
 }
 
 .pattern-overlay text {
-  font-size: 6.5px;
+  font-size: 9px;
   font-weight: 700;
   paint-order: stroke;
   stroke: #091727;
-  stroke-width: 2px;
+  stroke-width: 2.8px;
   stroke-linejoin: round;
 }
 
@@ -752,7 +1078,7 @@ h2 {
 }
 
 .pattern-anchor circle {
-  stroke-width: 1.2;
+  stroke-width: 1.7;
   vector-effect: non-scaling-stroke;
 }
 
@@ -772,20 +1098,25 @@ h2 {
 
 .indicator-strip {
   display: grid;
-  border: 1px solid rgb(105 142 182 / 13%);
-  border-radius: 9px;
-  grid-template-columns: repeat(4, 1fr);
+  margin-top: 5px;
+  border: 1px solid rgb(105 142 182 / 16%);
+  border-radius: 11px;
+  grid-template-columns: repeat(2, 1fr);
   overflow: hidden;
 }
 
 .indicator-strip > div {
-  padding: 7px 5px;
+  padding: 10px 8px;
   background: rgb(7 20 34 / 42%);
-  text-align: center;
+  text-align: left;
 }
 
-.indicator-strip > div + div {
-  border-left: 1px solid rgb(105 142 182 / 13%);
+.indicator-strip > div:nth-child(odd) {
+  border-right: 1px solid rgb(105 142 182 / 13%);
+}
+
+.indicator-strip > div:nth-child(-n + 2) {
+  border-bottom: 1px solid rgb(105 142 182 / 13%);
 }
 
 .indicator-strip span,
@@ -794,15 +1125,15 @@ h2 {
 }
 
 .indicator-strip span {
-  color: #5d7690;
-  font-size: 7px;
+  color: #6b849c;
+  font-size: 9px;
 }
 
 .indicator-strip strong {
-  margin-top: 3px;
-  color: #bdcedf;
+  margin-top: 5px;
+  color: #d4e2ef;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .indicator-strip strong.positive {
@@ -814,9 +1145,9 @@ h2 {
 }
 
 .chart-disclaimer {
-  margin: 8px 2px 0;
-  color: #4f687f;
-  font-size: 8px;
-  line-height: 1.45;
+  margin: 10px 2px 0;
+  color: #5a7289;
+  font-size: 9px;
+  line-height: 1.55;
 }
 </style>
