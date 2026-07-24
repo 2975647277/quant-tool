@@ -3,4 +3,8 @@ node_modules/
 dist/
 target/
 apps/desktop/src-tauri/gen/
+.pytest_cache/
+.ruff_cache/
+.venv/
+__pycache__/
 *.log

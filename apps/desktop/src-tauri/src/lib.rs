@@ -1,26 +1,41 @@
 mod eastmoney;
+mod quant_service;
 
 use eastmoney::{
     CompanionState, clear_manual_stock, get_eastmoney_context, refresh_eastmoney_context,
     request_accessibility_permission, set_follow_enabled, set_manual_stock,
 };
+use quant_service::{
+    QuantServiceState, get_quant_service_status, get_stock_diagnosis, restart_quant_service,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(CompanionState::default())
+        .manage(QuantServiceState::default())
         .invoke_handler(tauri::generate_handler![
             get_eastmoney_context,
             refresh_eastmoney_context,
             request_accessibility_permission,
             set_follow_enabled,
             set_manual_stock,
-            clear_manual_stock
+            clear_manual_stock,
+            get_quant_service_status,
+            restart_quant_service,
+            get_stock_diagnosis
         ])
         .setup(|app| {
             eastmoney::start_monitor(app.handle().clone());
+            quant_service::start_monitor(app.handle().clone());
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("failed to run quant companion");
+        .build(tauri::generate_context!())
+        .expect("failed to build quant companion");
+
+    app.run(|app_handle, event| {
+        if matches!(event, tauri::RunEvent::Exit) {
+            quant_service::stop(app_handle);
+        }
+    });
 }

@@ -1,8 +1,13 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import type { EastmoneyContext } from "./types";
+import type {
+  DiagnosisResult,
+  EastmoneyContext,
+  QuantServiceStatus,
+} from "./types";
 
 const CONTEXT_EVENT = "eastmoney-context";
+const QUANT_STATUS_EVENT = "quant-service-status";
 
 export function getEastmoneyContext(): Promise<EastmoneyContext> {
   return invoke("get_eastmoney_context");
@@ -35,6 +40,29 @@ export function onEastmoneyContext(
   callback: (context: EastmoneyContext) => void,
 ): Promise<UnlistenFn> {
   return listen<EastmoneyContext>(CONTEXT_EVENT, (event) =>
+    callback(event.payload),
+  );
+}
+
+export function getQuantServiceStatus(): Promise<QuantServiceStatus> {
+  return invoke("get_quant_service_status");
+}
+
+export function restartQuantService(): Promise<QuantServiceStatus> {
+  return invoke("restart_quant_service");
+}
+
+export function getStockDiagnosis(
+  code: string,
+  name: string,
+): Promise<DiagnosisResult> {
+  return invoke("get_stock_diagnosis", { code, name });
+}
+
+export function onQuantServiceStatus(
+  callback: (status: QuantServiceStatus) => void,
+): Promise<UnlistenFn> {
+  return listen<QuantServiceStatus>(QUANT_STATUS_EVENT, (event) =>
     callback(event.payload),
   );
 }

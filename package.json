@@ -6,9 +6,13 @@
     "node": "24.18.x"
   },
   "scripts": {
-    "dev": "pnpm --dir apps/desktop tauri dev",
-    "build": "pnpm --dir apps/desktop tauri build",
-    "check": "pnpm --dir apps/desktop check",
-    "test": "pnpm --dir apps/desktop test"
+    "prepare:quant": "uv sync --project services/quant --locked --no-editable --reinstall-package quant-service",
+    "contracts:generate": "pnpm prepare:quant && services/quant/.venv/bin/python services/quant/scripts/export_openapi.py && pnpm --dir packages/contracts generate",
+    "dev": "pnpm prepare:quant && pnpm --dir apps/desktop tauri dev",
+    "build": "pnpm prepare:quant && pnpm --dir apps/desktop tauri build",
+    "check": "pnpm prepare:quant && pnpm check:quant && pnpm check:desktop",
+    "check:desktop": "pnpm --dir apps/desktop check",
+    "check:quant": "services/quant/.venv/bin/ruff check services/quant/src services/quant/tests services/quant/scripts && services/quant/.venv/bin/ruff format --check services/quant/src services/quant/tests services/quant/scripts && services/quant/.venv/bin/pytest",
+    "test": "pnpm prepare:quant && services/quant/.venv/bin/pytest && pnpm --dir apps/desktop test"
   }
 }

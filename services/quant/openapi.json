@@ -1,0 +1,379 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Quant Companion Local API",
+    "description": "仅供本机桌面伴随应用调用的 P1 模拟诊断服务。",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "parameters": [
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stocks/{code}/diagnosis": {
+      "get": {
+        "summary": "Stock Diagnosis",
+        "operationId": "stock_diagnosis_v1_stocks__code__diagnosis_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosisResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DiagnosisResult": {
+        "properties": {
+          "stock": {
+            "$ref": "#/components/schemas/StockContext"
+          },
+          "compositeScore": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Compositescore"
+          },
+          "riskLevel": {
+            "$ref": "#/components/schemas/RiskLevel"
+          },
+          "riskLabel": {
+            "type": "string",
+            "title": "Risklabel"
+          },
+          "horizonTradingDays": {
+            "type": "integer",
+            "title": "Horizontradingdays"
+          },
+          "excessReturnRankPercentile": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Excessreturnrankpercentile"
+          },
+          "upsideProbability": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Upsideprobability"
+          },
+          "expectedReturnPercent": {
+            "type": "number",
+            "title": "Expectedreturnpercent"
+          },
+          "downsideRiskPercent": {
+            "type": "number",
+            "title": "Downsideriskpercent"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreDimension"
+            },
+            "type": "array",
+            "title": "Dimensions"
+          },
+          "explanations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Explanations"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "modelVersion": {
+            "type": "string",
+            "title": "Modelversion"
+          },
+          "dataVersion": {
+            "type": "string",
+            "title": "Dataversion"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generatedat"
+          },
+          "simulated": {
+            "type": "boolean",
+            "title": "Simulated"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stock",
+          "compositeScore",
+          "riskLevel",
+          "riskLabel",
+          "horizonTradingDays",
+          "excessReturnRankPercentile",
+          "upsideProbability",
+          "expectedReturnPercent",
+          "downsideRiskPercent",
+          "dimensions",
+          "explanations",
+          "warnings",
+          "modelVersion",
+          "dataVersion",
+          "generatedAt",
+          "simulated",
+          "disclaimer"
+        ],
+        "title": "DiagnosisResult"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ServiceState"
+          },
+          "serviceVersion": {
+            "type": "string",
+            "title": "Serviceversion"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "serviceVersion",
+          "mode"
+        ],
+        "title": "HealthResponse"
+      },
+      "RiskLevel": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "title": "RiskLevel"
+      },
+      "ScoreDimension": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "score": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "score",
+          "summary"
+        ],
+        "title": "ScoreDimension"
+      },
+      "ServiceState": {
+        "type": "string",
+        "enum": [
+          "ok"
+        ],
+        "title": "ServiceState"
+      },
+      "StockContext": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "StockContext"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

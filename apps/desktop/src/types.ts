@@ -1,3 +1,5 @@
+export type { DiagnosisResult } from "@quant-tool/contracts";
+
 export type ConnectionMode =
   | "accessibility"
   | "manual"
@@ -27,4 +29,12 @@ export interface EastmoneyContext {
   observerActive: boolean;
   updatedAtMs: number;
   message: string;
+}
+
+export type QuantServiceState = "starting" | "ready" | "unavailable";
+
+export interface QuantServiceStatus {
+  state: QuantServiceState;
+  message: string;
+  updatedAtMs: number;
 }

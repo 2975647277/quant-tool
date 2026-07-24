@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@quant-tool/contracts": "workspace:*",
     "@tauri-apps/api": "2.11.1",
     "vue": "3.5.40"
   },

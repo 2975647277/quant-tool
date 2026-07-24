@@ -1,23 +1,37 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   clearManualStock,
   getEastmoneyContext,
+  getQuantServiceStatus,
+  getStockDiagnosis,
   onEastmoneyContext,
+  onQuantServiceStatus,
   refreshEastmoneyContext,
   requestAccessibilityPermission,
+  restartQuantService,
   setFollowEnabled,
   setManualStock,
 } from "./bridge";
-import type { EastmoneyContext } from "./types";
+import type {
+  DiagnosisResult,
+  EastmoneyContext,
+  QuantServiceStatus,
+} from "./types";
 
 const context = ref<EastmoneyContext | null>(null);
-const loading = ref(false);
+const quantStatus = ref<QuantServiceStatus | null>(null);
+const diagnosis = ref<DiagnosisResult | null>(null);
+const actionLoading = ref(false);
+const diagnosisLoading = ref(false);
 const error = ref("");
+const diagnosisError = ref("");
 const manualCode = ref("");
 const manualName = ref("");
 const settingsOpen = ref(false);
-let unlisten: (() => void) | undefined;
+let unlistenContext: (() => void) | undefined;
+let unlistenQuantStatus: (() => void) | undefined;
+let diagnosisRequestId = 0;
 
 const statusLabel = computed(() => {
   switch (context.value?.mode) {
@@ -40,6 +54,17 @@ const statusTone = computed(() => {
   return "waiting";
 });
 
+const serviceLabel = computed(() => {
+  switch (quantStatus.value?.state) {
+    case "ready":
+      return "诊断服务已连接";
+    case "unavailable":
+      return "诊断服务恢复中";
+    default:
+      return "诊断服务启动中";
+  }
+});
+
 const formattedTime = computed(() => {
   if (!context.value?.updatedAtMs) return "尚未刷新";
   return new Intl.DateTimeFormat("zh-CN", {
@@ -49,16 +74,48 @@ const formattedTime = computed(() => {
   }).format(new Date(context.value.updatedAtMs));
 });
 
+const scoreStyle = computed(() => ({
+  "--score": `${diagnosis.value?.compositeScore ?? 0}%`,
+}));
+
+const riskTone = computed(() => diagnosis.value?.riskLevel ?? "medium");
+
 async function runAction(action: () => Promise<EastmoneyContext>) {
-  loading.value = true;
+  actionLoading.value = true;
   error.value = "";
   try {
     context.value = await action();
   } catch (cause) {
     error.value = String(cause);
   } finally {
-    loading.value = false;
+    actionLoading.value = false;
   }
+}
+
+async function loadDiagnosis() {
+  const stock = context.value?.stock;
+  const requestId = ++diagnosisRequestId;
+  diagnosis.value = null;
+  diagnosisError.value = "";
+  if (!stock || quantStatus.value?.state !== "ready") return;
+
+  diagnosisLoading.value = true;
+  try {
+    const result = await getStockDiagnosis(stock.code, stock.name);
+    if (requestId === diagnosisRequestId) diagnosis.value = result;
+  } catch (cause) {
+    if (requestId === diagnosisRequestId) {
+      diagnosisError.value = String(cause);
+    }
+  } finally {
+    if (requestId === diagnosisRequestId) diagnosisLoading.value = false;
+  }
+}
+
+async function restartService() {
+  diagnosisError.value = "";
+  diagnosis.value = null;
+  quantStatus.value = await restartQuantService();
 }
 
 function submitManualStock() {
@@ -71,22 +128,46 @@ function submitManualStock() {
   void runAction(() => setManualStock(code, name));
 }
 
+watch(
+  () => {
+    const stock = context.value?.stock;
+    return stock ? `${stock.code}:${stock.name}` : "";
+  },
+  () => void loadDiagnosis(),
+);
+
 onMounted(async () => {
-  context.value = await getEastmoneyContext();
-  unlisten = await onEastmoneyContext((nextContext) => {
-    context.value = nextContext;
-  });
+  try {
+    [context.value, quantStatus.value] = await Promise.all([
+      getEastmoneyContext(),
+      getQuantServiceStatus(),
+    ]);
+    unlistenContext = await onEastmoneyContext((nextContext) => {
+      context.value = nextContext;
+    });
+    unlistenQuantStatus = await onQuantServiceStatus((nextStatus) => {
+      const becameReady =
+        quantStatus.value?.state !== "ready" && nextStatus.state === "ready";
+      quantStatus.value = nextStatus;
+      if (becameReady) void loadDiagnosis();
+    });
+  } catch (cause) {
+    error.value = String(cause);
+  }
 });
 
-onBeforeUnmount(() => unlisten?.());
+onBeforeUnmount(() => {
+  unlistenContext?.();
+  unlistenQuantStatus?.();
+});
 </script>
 
 <template>
   <main class="shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">QUANT COMPANION · P0</p>
-        <h1>东方财富联动</h1>
+        <p class="eyebrow">QUANT · P1</p>
+        <h1>个股量化诊断</h1>
       </div>
       <div class="hero-actions">
         <span class="status-pill" :class="statusTone">
@@ -110,7 +191,16 @@ onBeforeUnmount(() => unlisten?.());
     </header>
 
     <section class="card stock-card">
-      <div class="card-label">当前股票</div>
+      <div class="stock-card-top">
+        <div class="card-label">东方财富当前股票</div>
+        <button
+          class="refresh-button"
+          :disabled="actionLoading"
+          @click="runAction(refreshEastmoneyContext)"
+        >
+          {{ actionLoading ? "刷新中" : "刷新" }}
+        </button>
+      </div>
       <template v-if="context?.stock">
         <div class="stock-heading">
           <strong>{{ context.stock.name || "未命名股票" }}</strong>
@@ -118,10 +208,9 @@ onBeforeUnmount(() => unlisten?.());
         </div>
       </template>
       <div v-else class="empty-stock">等待东方财富中的股票变化</div>
-      <p class="context-message">{{ context?.message || "正在初始化…" }}</p>
       <div class="meta-row">
         <span>更新于 {{ formattedTime }}</span>
-        <span>观察器 {{ context?.observerActive ? "已启用" : "轮询兜底" }}</span>
+        <span>观察器 {{ context?.observerActive ? "实时" : "轮询兜底" }}</span>
       </div>
     </section>
 
@@ -131,41 +220,138 @@ onBeforeUnmount(() => unlisten?.());
     >
       <div>
         <strong>需要无障碍权限</strong>
-        <p>权限只用于读取当前股票和窗口位置，不执行点击或交易。</p>
+        <p>只读取当前股票和窗口位置，不执行点击或交易。</p>
       </div>
       <button
         class="primary-button"
-        :disabled="loading"
+        :disabled="actionLoading"
         @click="runAction(requestAccessibilityPermission)"
       >
         请求权限
       </button>
     </section>
 
-    <section class="validation-card">
-      <div class="validation-title">
-        <span>P0 验证范围</span>
-        <button
-          class="refresh-button"
-          :disabled="loading"
-          @click="runAction(refreshEastmoneyContext)"
-        >
-          {{ loading ? "刷新中" : "立即刷新" }}
-        </button>
+    <section
+      v-if="quantStatus?.state !== 'ready'"
+      class="notice service-notice"
+      :class="{ unavailable: quantStatus?.state === 'unavailable' }"
+    >
+      <div>
+        <strong>{{ serviceLabel }}</strong>
+        <p>{{ quantStatus?.message || "正在初始化本地服务…" }}</p>
       </div>
-      <ul>
-        <li :class="{ done: context?.running }">检测东方财富进程</li>
-        <li :class="{ done: context?.permissionGranted }">只读无障碍访问</li>
-        <li :class="{ done: context?.stock }">识别股票代码</li>
-        <li :class="{ done: context?.frame }">获取窗口位置</li>
-      </ul>
+      <button
+        v-if="quantStatus?.state === 'unavailable'"
+        class="secondary-button"
+        @click="restartService"
+      >
+        立即重试
+      </button>
+    </section>
+
+    <section v-if="diagnosis" class="card diagnosis-card">
+      <div class="diagnosis-heading">
+        <div>
+          <div class="card-label">未来 10 个交易日 · 模拟</div>
+          <h2>量化综合评分</h2>
+        </div>
+        <div class="score-ring" :style="scoreStyle">
+          <strong>{{ diagnosis.compositeScore }}</strong>
+          <span>分</span>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div>
+          <span>超额排名</span>
+          <strong>前 {{ 100 - diagnosis.excessReturnRankPercentile }}%</strong>
+        </div>
+        <div>
+          <span>上涨概率</span>
+          <strong>{{ Math.round(diagnosis.upsideProbability * 100) }}%</strong>
+        </div>
+        <div>
+          <span>预期收益</span>
+          <strong :class="{ positive: diagnosis.expectedReturnPercent >= 0 }">
+            {{ diagnosis.expectedReturnPercent >= 0 ? "+" : ""
+            }}{{ diagnosis.expectedReturnPercent }}%
+          </strong>
+        </div>
+        <div>
+          <span>下行风险</span>
+          <strong class="negative">{{ diagnosis.downsideRiskPercent }}%</strong>
+        </div>
+      </div>
+
+      <div class="risk-row">
+        <span>风险等级</span>
+        <strong class="risk-badge" :class="riskTone">
+          {{ diagnosis.riskLabel }}
+        </strong>
+      </div>
+
+      <div class="dimension-list">
+        <div
+          v-for="dimension in diagnosis.dimensions"
+          :key="dimension.key"
+          class="dimension"
+        >
+          <div class="dimension-copy">
+            <span>{{ dimension.label }}</span>
+            <strong>{{ dimension.score }}</strong>
+          </div>
+          <div class="dimension-track">
+            <span :style="{ width: `${dimension.score}%` }" />
+          </div>
+          <p>{{ dimension.summary }}</p>
+        </div>
+      </div>
+
+      <div class="explanation-panel">
+        <div class="card-label">为什么是这个分数</div>
+        <p v-for="item in diagnosis.explanations.slice(0, 2)" :key="item">
+          {{ item }}
+        </p>
+      </div>
+
+      <div class="diagnosis-meta">
+        <span>{{ diagnosis.modelVersion }}</span>
+        <span>{{ diagnosis.dataVersion }}</span>
+      </div>
+    </section>
+
+    <section
+      v-else-if="diagnosisLoading"
+      class="card diagnosis-card diagnosis-loading"
+      aria-label="诊断加载中"
+    >
+      <div class="skeleton wide" />
+      <div class="skeleton score" />
+      <div class="skeleton" />
+      <div class="skeleton" />
+      <div class="skeleton short" />
+    </section>
+
+    <section
+      v-else-if="context?.stock && quantStatus?.state === 'ready'"
+      class="notice service-notice unavailable"
+    >
+      <div>
+        <strong>评分卡加载失败</strong>
+        <p>{{ diagnosisError || "未能取得模拟诊断结果" }}</p>
+      </div>
+      <button class="secondary-button" @click="loadDiagnosis">重新加载</button>
+    </section>
+
+    <section v-else-if="!context?.stock" class="card diagnosis-placeholder">
+      <div class="placeholder-icon">↗</div>
+      <strong>切换一只股票开始诊断</strong>
+      <p>识别到东方财富当前股票后，评分卡会自动刷新。</p>
     </section>
 
     <p v-if="error && !settingsOpen" class="error-message">{{ error }}</p>
 
-    <footer>
-      本阶段不采集行情、不训练模型、不读取账户、不执行交易
-    </footer>
+    <footer>P1 使用模拟数据验证产品闭环，不构成任何投资建议</footer>
 
     <Transition name="settings">
       <div
@@ -207,7 +393,7 @@ onBeforeUnmount(() => unlisten?.());
                 class="switch"
                 :class="{ enabled: context?.followEnabled }"
                 :aria-pressed="context?.followEnabled"
-                :disabled="loading"
+                :disabled="actionLoading"
                 @click="
                   runAction(() => setFollowEnabled(!context?.followEnabled))
                 "
@@ -216,7 +402,7 @@ onBeforeUnmount(() => unlisten?.());
               </button>
             </div>
             <p class="muted">
-              以 60Hz 跟随东方财富窗口；窗口层级随东方财富前后台状态变化。
+              以约 60Hz 跟随东方财富窗口，窗口层级随前后台状态变化。
             </p>
           </section>
 
@@ -244,7 +430,7 @@ onBeforeUnmount(() => unlisten?.());
             <div class="action-row">
               <button
                 class="secondary-button"
-                :disabled="loading"
+                :disabled="actionLoading"
                 @click="submitManualStock"
               >
                 使用手动代码
@@ -252,12 +438,39 @@ onBeforeUnmount(() => unlisten?.());
               <button
                 v-if="context?.mode === 'manual'"
                 class="text-button"
-                :disabled="loading"
+                :disabled="actionLoading"
                 @click="runAction(clearManualStock)"
               >
                 恢复自动
               </button>
             </div>
+          </section>
+
+          <section class="settings-section">
+            <div class="section-heading">
+              <div>
+                <div class="card-label">本地诊断服务</div>
+                <strong>{{ serviceLabel }}</strong>
+              </div>
+              <span
+                class="service-dot"
+                :class="quantStatus?.state || 'starting'"
+              />
+            </div>
+            <p class="muted">{{ quantStatus?.message }}</p>
+            <button
+              class="secondary-button service-restart"
+              @click="restartService"
+            >
+              重启本地服务
+            </button>
+          </section>
+
+          <section class="settings-section boundary-section">
+            <div class="card-label">P1 数据边界</div>
+            <p class="muted">
+              当前仅返回确定性的模拟评分，不采集东方财富行情、不读取账户、不训练模型，也不执行任何交易。
+            </p>
           </section>
 
           <p v-if="error" class="error-message">{{ error }}</p>

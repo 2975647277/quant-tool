@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "P0 主窗口的最小权限",
+  "description": "P1 主窗口的最小权限",
   "windows": ["main"],
   "permissions": [
     "core:default",
