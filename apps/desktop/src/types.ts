@@ -1,4 +1,7 @@
-export type { DiagnosisResult } from "@quant-tool/contracts";
+export type {
+  DiagnosisResult,
+  StockResearchView,
+} from "@quant-tool/contracts";
 
 export type ConnectionMode =
   | "accessibility"

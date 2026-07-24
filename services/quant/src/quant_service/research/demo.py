@@ -59,6 +59,10 @@ def build_p3_demo_report() -> P3ResearchReport:
                 top_group_mean_excess_return=metrics.top_group_mean_excess_return,
                 top_group_cumulative_excess_return=(metrics.top_group_cumulative_excess_return),
                 top_group_max_drawdown=metrics.top_group_max_drawdown,
+                top_group_individual_positive_excess_rate=(
+                    metrics.top_group_individual_positive_excess_rate
+                ),
+                top_group_daily_positive_excess_rate=(metrics.top_group_daily_positive_excess_rate),
                 evaluated_dates=metrics.evaluated_dates,
                 eligible_for_default=eligible,
                 admission_reasons=reasons,
@@ -124,6 +128,7 @@ def build_p3_demo_report() -> P3ResearchReport:
             "volume_capacity",
         ],
         default_model=(default_candidate.model_version if default_candidate is not None else None),
+        latest_signal_date=_to_date(latest.signal_date),
         generated_at=latest.predicted_at,
         disclaimer=(
             "P3 使用确定性研究样本验证工程能力；不含真实市场数据，"

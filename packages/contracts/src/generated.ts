@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/stocks/{code}/research": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stock Research */
+        get: operations["stock_research_v1_stocks__code__research_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -239,6 +256,11 @@ export interface components {
             /** Defaultmodel */
             defaultModel: string | null;
             /**
+             * Latestsignaldate
+             * Format: date
+             */
+            latestSignalDate: string;
+            /**
              * Generatedat
              * Format: date-time
              */
@@ -276,6 +298,10 @@ export interface components {
             topGroupCumulativeExcessReturn: number;
             /** Topgroupmaxdrawdown */
             topGroupMaxDrawdown: number;
+            /** Topgroupindividualpositiveexcessrate */
+            topGroupIndividualPositiveExcessRate: number;
+            /** Topgroupdailypositiveexcessrate */
+            topGroupDailyPositiveExcessRate: number;
             /** Evaluateddates */
             evaluatedDates: number;
             /** Eligiblefordefault */
@@ -283,6 +309,11 @@ export interface components {
             /** Admissionreasons */
             admissionReasons: string[];
         };
+        /**
+         * ResearchCoverage
+         * @enum {string}
+         */
+        ResearchCoverage: "selected_top20" | "covered_not_selected" | "not_covered";
         /**
          * RiskLevel
          * @enum {string}
@@ -310,6 +341,59 @@ export interface components {
             code: string;
             /** Name */
             name: string;
+        };
+        /** StockResearchView */
+        StockResearchView: {
+            stock: components["schemas"]["StockContext"];
+            coverage: components["schemas"]["ResearchCoverage"];
+            /** Coveragelabel */
+            coverageLabel: string;
+            /** Iscurrentsignal */
+            isCurrentSignal: boolean;
+            /**
+             * Signaldate
+             * Format: date
+             */
+            signalDate: string;
+            /** Top20Rank */
+            top20Rank: number | null;
+            /** Top20Score */
+            top20Score: number | null;
+            /** Top20Weight */
+            top20Weight: number | null;
+            /** Modelversion */
+            modelVersion: string;
+            /** Dataversion */
+            dataVersion: string;
+            /** Datastartdate */
+            dataStartDate: string;
+            /** Dataenddate */
+            dataEndDate: string;
+            /** Universecount */
+            universeCount: number;
+            /** Factordates */
+            factorDates: number;
+            /** Rankic */
+            rankIc: number;
+            /** Icir */
+            icir: number;
+            /** Topgroupdailypositiveexcessrate */
+            topGroupDailyPositiveExcessRate: number;
+            /** Topgroupmeanexcessreturn */
+            topGroupMeanExcessReturn: number;
+            /** Topgroupmaxdrawdown */
+            topGroupMaxDrawdown: number;
+            /** Eligiblefordefault */
+            eligibleForDefault: boolean;
+            /** Admissionreasons */
+            admissionReasons: string[];
+            /**
+             * Generatedat
+             * Format: date-time
+             */
+            generatedAt: string;
+            /** Disclaimer */
+            disclaimer: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -479,6 +563,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["P3ResearchReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stock_research_v1_stocks__code__research_get: {
+        parameters: {
+            query?: {
+                name?: string | null;
+            };
+            header?: {
+                "X-Quant-Session"?: string | null;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockResearchView"];
                 };
             };
             /** @description Validation Error */

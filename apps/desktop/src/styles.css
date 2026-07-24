@@ -559,6 +559,33 @@ input::placeholder {
   color: #f39a9a;
 }
 
+.research-coverage {
+  margin-top: 14px;
+  border: 1px solid rgb(105 142 182 / 13%);
+  border-radius: 11px;
+  padding: 12px;
+  background: rgb(7 20 34 / 42%);
+}
+
+.coverage-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.coverage-title > strong {
+  color: #c9d9e9;
+  font-size: 12px;
+}
+
+.research-coverage p {
+  margin: 8px 0 0;
+  color: #738aa1;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
 .dimension-list {
   display: grid;
   gap: 11px;

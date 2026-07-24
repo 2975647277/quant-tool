@@ -4,7 +4,7 @@ import {
   clearManualStock,
   getEastmoneyContext,
   getQuantServiceStatus,
-  getStockDiagnosis,
+  getStockResearch,
   onEastmoneyContext,
   onQuantServiceStatus,
   refreshEastmoneyContext,
@@ -14,24 +14,24 @@ import {
   setManualStock,
 } from "./bridge";
 import type {
-  DiagnosisResult,
   EastmoneyContext,
   QuantServiceStatus,
+  StockResearchView,
 } from "./types";
 
 const context = ref<EastmoneyContext | null>(null);
 const quantStatus = ref<QuantServiceStatus | null>(null);
-const diagnosis = ref<DiagnosisResult | null>(null);
+const research = ref<StockResearchView | null>(null);
 const actionLoading = ref(false);
-const diagnosisLoading = ref(false);
+const researchLoading = ref(false);
 const error = ref("");
-const diagnosisError = ref("");
+const researchError = ref("");
 const manualCode = ref("");
 const manualName = ref("");
 const settingsOpen = ref(false);
 let unlistenContext: (() => void) | undefined;
 let unlistenQuantStatus: (() => void) | undefined;
-let diagnosisRequestId = 0;
+let researchRequestId = 0;
 
 const statusLabel = computed(() => {
   switch (context.value?.mode) {
@@ -57,11 +57,11 @@ const statusTone = computed(() => {
 const serviceLabel = computed(() => {
   switch (quantStatus.value?.state) {
     case "ready":
-      return "诊断服务已连接";
+      return "研究服务已连接";
     case "unavailable":
-      return "诊断服务恢复中";
+      return "研究服务恢复中";
     default:
-      return "诊断服务启动中";
+      return "研究服务启动中";
   }
 });
 
@@ -75,10 +75,50 @@ const formattedTime = computed(() => {
 });
 
 const scoreStyle = computed(() => ({
-  "--score": `${diagnosis.value?.compositeScore ?? 0}%`,
+  "--score": `${Math.round(
+    (research.value?.topGroupDailyPositiveExcessRate ?? 0) * 100,
+  )}%`,
 }));
 
-const riskTone = computed(() => diagnosis.value?.riskLevel ?? "medium");
+const coverageTone = computed(() => {
+  switch (research.value?.coverage) {
+    case "selected_top20":
+      return "low";
+    case "covered_not_selected":
+      return "medium";
+    default:
+      return "high";
+  }
+});
+
+const signalDateLabel = computed(() => {
+  if (!research.value?.signalDate) return "未知日期";
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(`${research.value.signalDate}T00:00:00+08:00`));
+});
+
+function percent(value: number, digits = 1) {
+  return `${(value * 100).toFixed(digits)}%`;
+}
+
+const admissionLabels: Record<string, string> = {
+  "rank_ic_below_0.02": "Rank IC 低于内部门槛",
+  "icir_below_0.8": "ICIR 低于内部门槛",
+  top_group_excess_not_positive: "Top 组平均超额收益未转正",
+  max_drawdown_above_15_percent: "Top 组最大回撤超过 15%",
+  current_constituent_universe_has_survivorship_bias:
+    "当前成分股回测存在幸存者偏差",
+  historical_financial_revision_chain_unavailable: "缺少完整财务历史修订链",
+  broad_index_excess_label_used_until_historical_industry_membership_is_available:
+    "缺少历史行业成员，暂用沪深300基准",
+};
+
+function admissionLabel(reason: string) {
+  return admissionLabels[reason] ?? reason;
+}
 
 async function runAction(action: () => Promise<EastmoneyContext>) {
   actionLoading.value = true;
@@ -92,29 +132,30 @@ async function runAction(action: () => Promise<EastmoneyContext>) {
   }
 }
 
-async function loadDiagnosis() {
+async function loadResearch() {
   const stock = context.value?.stock;
-  const requestId = ++diagnosisRequestId;
-  diagnosis.value = null;
-  diagnosisError.value = "";
+  const requestId = ++researchRequestId;
+  research.value = null;
+  researchError.value = "";
+  researchLoading.value = false;
   if (!stock || quantStatus.value?.state !== "ready") return;
 
-  diagnosisLoading.value = true;
+  researchLoading.value = true;
   try {
-    const result = await getStockDiagnosis(stock.code, stock.name);
-    if (requestId === diagnosisRequestId) diagnosis.value = result;
+    const result = await getStockResearch(stock.code, stock.name);
+    if (requestId === researchRequestId) research.value = result;
   } catch (cause) {
-    if (requestId === diagnosisRequestId) {
-      diagnosisError.value = String(cause);
+    if (requestId === researchRequestId) {
+      researchError.value = String(cause);
     }
   } finally {
-    if (requestId === diagnosisRequestId) diagnosisLoading.value = false;
+    if (requestId === researchRequestId) researchLoading.value = false;
   }
 }
 
 async function restartService() {
-  diagnosisError.value = "";
-  diagnosis.value = null;
+  researchError.value = "";
+  research.value = null;
   quantStatus.value = await restartQuantService();
 }
 
@@ -131,9 +172,10 @@ function submitManualStock() {
 watch(
   () => {
     const stock = context.value?.stock;
-    return stock ? `${stock.code}:${stock.name}` : "";
+    const stockKey = stock ? `${stock.code}:${stock.name}` : "";
+    return `${stockKey}:${quantStatus.value?.state ?? ""}`;
   },
-  () => void loadDiagnosis(),
+  () => void loadResearch(),
 );
 
 onMounted(async () => {
@@ -146,10 +188,7 @@ onMounted(async () => {
       context.value = nextContext;
     });
     unlistenQuantStatus = await onQuantServiceStatus((nextStatus) => {
-      const becameReady =
-        quantStatus.value?.state !== "ready" && nextStatus.state === "ready";
       quantStatus.value = nextStatus;
-      if (becameReady) void loadDiagnosis();
     });
   } catch (cause) {
     error.value = String(cause);
@@ -166,7 +205,7 @@ onBeforeUnmount(() => {
   <main class="shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">QUANT · P1</p>
+        <p class="eyebrow">QUANT · P2/P3</p>
         <h1>个股量化诊断</h1>
       </div>
       <div class="hero-actions">
@@ -249,81 +288,102 @@ onBeforeUnmount(() => {
       </button>
     </section>
 
-    <section v-if="diagnosis" class="card diagnosis-card">
+    <section v-if="research" class="card diagnosis-card">
       <div class="diagnosis-heading">
         <div>
-          <div class="card-label">未来 10 个交易日 · 模拟</div>
-          <h2>量化综合评分</h2>
+          <div class="card-label">真实样本外研究 · 非实时信号</div>
+          <h2>LightGBM 验证快照</h2>
         </div>
         <div class="score-ring" :style="scoreStyle">
-          <strong>{{ diagnosis.compositeScore }}</strong>
-          <span>分</span>
+          <strong>{{
+            Math.round(research.topGroupDailyPositiveExcessRate * 100)
+          }}</strong>
+          <span>跑赢率%</span>
         </div>
       </div>
 
       <div class="metric-grid">
         <div>
-          <span>超额排名</span>
-          <strong>前 {{ 100 - diagnosis.excessReturnRankPercentile }}%</strong>
+          <span>当前股票覆盖</span>
+          <strong>{{ research.coverageLabel }}</strong>
         </div>
         <div>
-          <span>上涨概率</span>
-          <strong>{{ Math.round(diagnosis.upsideProbability * 100) }}%</strong>
+          <span>样本外 Rank IC</span>
+          <strong>{{ research.rankIc.toFixed(3) }}</strong>
         </div>
         <div>
-          <span>预期收益</span>
-          <strong :class="{ positive: diagnosis.expectedReturnPercent >= 0 }">
-            {{ diagnosis.expectedReturnPercent >= 0 ? "+" : ""
-            }}{{ diagnosis.expectedReturnPercent }}%
+          <span>Top组平均超额</span>
+          <strong
+            :class="{ positive: research.topGroupMeanExcessReturn >= 0 }"
+          >
+            {{ research.topGroupMeanExcessReturn >= 0 ? "+" : ""
+            }}{{ percent(research.topGroupMeanExcessReturn, 2) }}
           </strong>
         </div>
         <div>
-          <span>下行风险</span>
-          <strong class="negative">{{ diagnosis.downsideRiskPercent }}%</strong>
+          <span>Top组最大回撤</span>
+          <strong class="negative">
+            -{{ percent(research.topGroupMaxDrawdown, 2) }}
+          </strong>
         </div>
       </div>
 
       <div class="risk-row">
-        <span>风险等级</span>
-        <strong class="risk-badge" :class="riskTone">
-          {{ diagnosis.riskLabel }}
+        <span>模型准入</span>
+        <strong
+          class="risk-badge"
+          :class="research.eligibleForDefault ? 'low' : 'high'"
+        >
+          {{ research.eligibleForDefault ? "已通过" : "未通过" }}
         </strong>
       </div>
 
-      <div class="dimension-list">
-        <div
-          v-for="dimension in diagnosis.dimensions"
-          :key="dimension.key"
-          class="dimension"
-        >
-          <div class="dimension-copy">
-            <span>{{ dimension.label }}</span>
-            <strong>{{ dimension.score }}</strong>
-          </div>
-          <div class="dimension-track">
-            <span :style="{ width: `${dimension.score}%` }" />
-          </div>
-          <p>{{ dimension.summary }}</p>
+      <div class="research-coverage">
+        <div class="card-label">当前股票</div>
+        <div class="coverage-title">
+          <strong>{{ research.coverageLabel }}</strong>
+          <span class="risk-badge" :class="coverageTone">
+            {{
+              research.coverage === "selected_top20"
+                ? `第 ${research.top20Rank} 名`
+                : research.coverage === "covered_not_selected"
+                  ? "已覆盖"
+                  : "未覆盖"
+            }}
+          </span>
         </div>
+        <p v-if="research.coverage === 'selected_top20'">
+          该股票出现在 {{ signalDateLabel }} 的历史末期 Top 20
+          快照中；这不是今天的推荐。
+        </p>
+        <p v-else-if="research.coverage === 'covered_not_selected'">
+          该股票属于30只研究样本，但未进入 {{ signalDateLabel }} 的历史 Top 20。
+        </p>
+        <p v-else>
+          当前股票不在这次30只研究样本内，因此不生成个股分数或上涨概率。
+        </p>
       </div>
 
       <div class="explanation-panel">
-        <div class="card-label">为什么是这个分数</div>
-        <p v-for="item in diagnosis.explanations.slice(0, 2)" :key="item">
-          {{ item }}
+        <div class="card-label">为什么还不能用于实盘</div>
+        <p
+          v-for="reason in research.admissionReasons.slice(0, 3)"
+          :key="reason"
+        >
+          {{ admissionLabel(reason) }}
         </p>
       </div>
 
       <div class="diagnosis-meta">
-        <span>{{ diagnosis.modelVersion }}</span>
-        <span>{{ diagnosis.dataVersion }}</span>
+        <span>{{ research.modelVersion }}</span>
+        <span>{{ research.dataVersion }}</span>
       </div>
     </section>
 
     <section
-      v-else-if="diagnosisLoading"
+      v-else-if="researchLoading"
       class="card diagnosis-card diagnosis-loading"
-      aria-label="诊断加载中"
+      aria-label="真实研究加载中"
     >
       <div class="skeleton wide" />
       <div class="skeleton score" />
@@ -337,21 +397,21 @@ onBeforeUnmount(() => {
       class="notice service-notice unavailable"
     >
       <div>
-        <strong>评分卡加载失败</strong>
-        <p>{{ diagnosisError || "未能取得模拟诊断结果" }}</p>
+        <strong>真实研究快照加载失败</strong>
+        <p>{{ researchError || "未能取得 P2/P3 真实研究结果" }}</p>
       </div>
-      <button class="secondary-button" @click="loadDiagnosis">重新加载</button>
+      <button class="secondary-button" @click="loadResearch">重新加载</button>
     </section>
 
     <section v-else-if="!context?.stock" class="card diagnosis-placeholder">
       <div class="placeholder-icon">↗</div>
-      <strong>切换一只股票开始诊断</strong>
-      <p>识别到东方财富当前股票后，评分卡会自动刷新。</p>
+      <strong>切换一只股票查看研究覆盖</strong>
+      <p>识别后会显示该股票是否在 P2/P3 真实研究样本中。</p>
     </section>
 
     <p v-if="error && !settingsOpen" class="error-message">{{ error }}</p>
 
-    <footer>P1 使用模拟数据验证产品闭环，不构成任何投资建议</footer>
+    <footer>P2/P3 真实历史研究已连接；非实时信号，不构成任何投资建议</footer>
 
     <Transition name="settings">
       <div
@@ -449,7 +509,7 @@ onBeforeUnmount(() => {
           <section class="settings-section">
             <div class="section-heading">
               <div>
-                <div class="card-label">本地诊断服务</div>
+                <div class="card-label">本地研究服务</div>
                 <strong>{{ serviceLabel }}</strong>
               </div>
               <span
@@ -467,9 +527,9 @@ onBeforeUnmount(() => {
           </section>
 
           <section class="settings-section boundary-section">
-            <div class="card-label">P1 数据边界</div>
+            <div class="card-label">P2/P3 数据边界</div>
             <p class="muted">
-              当前仅返回确定性的模拟评分，不采集东方财富行情、不读取账户、不训练模型，也不执行任何交易。
+              当前展示真实历史样本外验证结果，不是当日预测；研究池只有30只样本，未通过准入的模型不生成个股概率，也不执行任何交易。
             </p>
           </section>
 

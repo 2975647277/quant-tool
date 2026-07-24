@@ -20,35 +20,34 @@ vi.mock("./bridge", () => ({
   onEastmoneyContext: vi.fn().mockResolvedValue(() => undefined),
   getQuantServiceStatus: vi.fn().mockResolvedValue({
     state: "ready",
-    message: "本地量化服务已连接（P1 模拟数据）",
+    message: "本地量化服务已连接（P2/P3 真实研究）",
     updatedAtMs: Date.now(),
   }),
   onQuantServiceStatus: vi.fn().mockResolvedValue(() => undefined),
-  getStockDiagnosis: vi.fn().mockResolvedValue({
+  getStockResearch: vi.fn().mockResolvedValue({
     stock: { code: "001309", name: "示例股票" },
-    compositeScore: 76,
-    riskLevel: "medium",
-    riskLabel: "中等",
-    horizonTradingDays: 10,
-    excessReturnRankPercentile: 82,
-    upsideProbability: 0.63,
-    expectedReturnPercent: 3.1,
-    downsideRiskPercent: -6.2,
-    dimensions: [
-      {
-        key: "trend",
-        label: "趋势质量",
-        score: 81,
-        summary: "中短期趋势模拟信号相对积极",
-      },
-    ],
-    explanations: ["趋势质量是当前模拟评分中最强的维度（81 分）。"],
-    warnings: ["当前结果为模拟数据。"],
-    modelVersion: "mock-p1-v1",
-    dataVersion: "mock-deterministic-v1",
+    coverage: "not_covered",
+    coverageLabel: "当前30只研究样本未覆盖",
+    isCurrentSignal: false,
+    signalDate: "2025-12-17",
+    top20Rank: null,
+    top20Score: null,
+    top20Weight: null,
+    modelVersion: "lightgbm-lambdarank-v1",
+    dataVersion: "p2-real-test",
+    dataStartDate: "2020-01-01",
+    dataEndDate: "2025-12-31",
+    universeCount: 30,
+    factorDates: 1000,
+    rankIc: 0.039,
+    icir: 2.94,
+    topGroupDailyPositiveExcessRate: 0.532,
+    topGroupMeanExcessReturn: 0.009,
+    topGroupMaxDrawdown: 0.175,
+    eligibleForDefault: false,
+    admissionReasons: ["max_drawdown_above_15_percent"],
     generatedAt: new Date().toISOString(),
-    simulated: true,
-    disclaimer: "模拟结果，不构成投资建议。",
+    disclaimer: "真实历史样本外研究，不是当前交易信号。",
   }),
   restartQuantService: vi.fn(),
   refreshEastmoneyContext: vi.fn(),
@@ -58,22 +57,23 @@ vi.mock("./bridge", () => ({
 }));
 
 describe("App", () => {
-  it("renders the detected stock and P1 mock diagnosis", async () => {
+  it("renders real P2/P3 research coverage without a fabricated stock score", async () => {
     const wrapper = mount(App);
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain("示例股票");
-      expect(wrapper.text()).toContain("量化综合评分");
+      expect(wrapper.text()).toContain("LightGBM 验证快照");
     });
     expect(wrapper.text()).toContain("001309");
-    expect(wrapper.text()).toContain("76");
-    expect(wrapper.text()).toContain("趋势质量");
-    expect(wrapper.text()).toContain("P1 使用模拟数据");
+    expect(wrapper.text()).toContain("53");
+    expect(wrapper.text()).toContain("当前30只研究样本未覆盖");
+    expect(wrapper.text()).toContain("不生成个股分数或上涨概率");
+    expect(wrapper.text()).toContain("P2/P3 真实历史研究已连接");
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
 
     await wrapper.get('[aria-label="打开设置"]').trigger("click");
     expect(wrapper.get('[role="dialog"]').text()).toContain("实时贴靠并同步高度");
     expect(wrapper.get('[role="dialog"]').text()).toContain("手动降级");
-    expect(wrapper.get('[role="dialog"]').text()).toContain("本地诊断服务");
-    expect(wrapper.get('[role="dialog"]').text()).toContain("P1 数据边界");
+    expect(wrapper.get('[role="dialog"]').text()).toContain("本地研究服务");
+    expect(wrapper.get('[role="dialog"]').text()).toContain("P2/P3 数据边界");
   });
 });

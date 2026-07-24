@@ -3,7 +3,7 @@
   "info": {
     "title": "Quant Companion Local API",
     "description": "仅供本机桌面伴随应用调用的量化诊断与研究服务。",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "paths": {
     "/health": {
@@ -245,6 +245,78 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/P3ResearchReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stocks/{code}/research": {
+      "get": {
+        "summary": "Stock Research",
+        "operationId": "stock_research_v1_stocks__code__research_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockResearchView"
                 }
               }
             }
@@ -654,6 +726,11 @@
             ],
             "title": "Defaultmodel"
           },
+          "latestSignalDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Latestsignaldate"
+          },
           "generatedAt": {
             "type": "string",
             "format": "date-time",
@@ -677,6 +754,7 @@
           "backtest",
           "coveredConstraints",
           "defaultModel",
+          "latestSignalDate",
           "generatedAt",
           "disclaimer"
         ],
@@ -740,6 +818,14 @@
             "type": "number",
             "title": "Topgroupmaxdrawdown"
           },
+          "topGroupIndividualPositiveExcessRate": {
+            "type": "number",
+            "title": "Topgroupindividualpositiveexcessrate"
+          },
+          "topGroupDailyPositiveExcessRate": {
+            "type": "number",
+            "title": "Topgroupdailypositiveexcessrate"
+          },
           "evaluatedDates": {
             "type": "integer",
             "title": "Evaluateddates"
@@ -766,11 +852,22 @@
           "topGroupMeanExcessReturn",
           "topGroupCumulativeExcessReturn",
           "topGroupMaxDrawdown",
+          "topGroupIndividualPositiveExcessRate",
+          "topGroupDailyPositiveExcessRate",
           "evaluatedDates",
           "eligibleForDefault",
           "admissionReasons"
         ],
         "title": "RankingMetricResult"
+      },
+      "ResearchCoverage": {
+        "type": "string",
+        "enum": [
+          "selected_top20",
+          "covered_not_selected",
+          "not_covered"
+        ],
+        "title": "ResearchCoverage"
       },
       "RiskLevel": {
         "type": "string",
@@ -836,6 +933,153 @@
           "name"
         ],
         "title": "StockContext"
+      },
+      "StockResearchView": {
+        "properties": {
+          "stock": {
+            "$ref": "#/components/schemas/StockContext"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/ResearchCoverage"
+          },
+          "coverageLabel": {
+            "type": "string",
+            "title": "Coveragelabel"
+          },
+          "isCurrentSignal": {
+            "type": "boolean",
+            "title": "Iscurrentsignal"
+          },
+          "signalDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Signaldate"
+          },
+          "top20Rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top20Rank"
+          },
+          "top20Score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top20Score"
+          },
+          "top20Weight": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top20Weight"
+          },
+          "modelVersion": {
+            "type": "string",
+            "title": "Modelversion"
+          },
+          "dataVersion": {
+            "type": "string",
+            "title": "Dataversion"
+          },
+          "dataStartDate": {
+            "type": "string",
+            "title": "Datastartdate"
+          },
+          "dataEndDate": {
+            "type": "string",
+            "title": "Dataenddate"
+          },
+          "universeCount": {
+            "type": "integer",
+            "title": "Universecount"
+          },
+          "factorDates": {
+            "type": "integer",
+            "title": "Factordates"
+          },
+          "rankIc": {
+            "type": "number",
+            "title": "Rankic"
+          },
+          "icir": {
+            "type": "number",
+            "title": "Icir"
+          },
+          "topGroupDailyPositiveExcessRate": {
+            "type": "number",
+            "title": "Topgroupdailypositiveexcessrate"
+          },
+          "topGroupMeanExcessReturn": {
+            "type": "number",
+            "title": "Topgroupmeanexcessreturn"
+          },
+          "topGroupMaxDrawdown": {
+            "type": "number",
+            "title": "Topgroupmaxdrawdown"
+          },
+          "eligibleForDefault": {
+            "type": "boolean",
+            "title": "Eligiblefordefault"
+          },
+          "admissionReasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Admissionreasons"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generatedat"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stock",
+          "coverage",
+          "coverageLabel",
+          "isCurrentSignal",
+          "signalDate",
+          "top20Rank",
+          "top20Score",
+          "top20Weight",
+          "modelVersion",
+          "dataVersion",
+          "dataStartDate",
+          "dataEndDate",
+          "universeCount",
+          "factorDates",
+          "rankIc",
+          "icir",
+          "topGroupDailyPositiveExcessRate",
+          "topGroupMeanExcessReturn",
+          "topGroupMaxDrawdown",
+          "eligibleForDefault",
+          "admissionReasons",
+          "generatedAt",
+          "disclaimer"
+        ],
+        "title": "StockResearchView"
       },
       "ValidationError": {
         "properties": {

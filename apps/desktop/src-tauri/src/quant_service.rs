@@ -126,6 +126,54 @@ pub fn get_stock_diagnosis(
     }
 }
 
+#[tauri::command]
+pub fn get_stock_research(
+    code: String,
+    name: String,
+    app: AppHandle,
+    state: State<'_, QuantServiceState>,
+) -> Result<Value, String> {
+    if code.len() != 6 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err("股票代码必须是 6 位数字".into());
+    }
+
+    let (endpoint, token) = state
+        .runtime
+        .lock()
+        .map_err(|_| "本地量化服务状态读取失败")?
+        .connection()
+        .ok_or("本地量化服务尚未就绪，请稍后重试")?;
+
+    let response = http_client()
+        .get(format!("{endpoint}/v1/stocks/{code}/research"))
+        .header(SESSION_HEADER, token)
+        .query(&[("name", name.trim())])
+        .send();
+
+    match response {
+        Ok(response) if response.status().is_success() => response
+            .json::<Value>()
+            .map_err(|error| format!("真实研究结果解析失败：{error}")),
+        Ok(response) => {
+            let status = response.status();
+            let detail = response
+                .json::<Value>()
+                .ok()
+                .and_then(|value| value.get("detail")?.as_str().map(str::to_owned))
+                .unwrap_or_else(|| "真实研究结果暂不可用".into());
+            Err(format!("{detail}（HTTP {status}）"))
+        }
+        Err(error) => {
+            mark_for_restart(
+                &app,
+                &state,
+                format!("本地量化服务请求失败，正在自动恢复：{error}"),
+            );
+            Err("本地量化服务暂不可用，应用正在自动恢复，请稍后重试".into())
+        }
+    }
+}
+
 impl ServiceRuntime {
     fn connection(&self) -> Option<(String, String)> {
         if self.status.state != "ready" {
@@ -176,7 +224,7 @@ pub fn start_monitor(app: AppHandle) {
                                     &mut runtime,
                                     QuantServiceStatus {
                                         state: "ready",
-                                        message: "本地量化服务已连接（P1 模拟数据）".into(),
+                                        message: "本地量化服务已连接（P2/P3 真实研究）".into(),
                                         updated_at_ms: now_ms(),
                                     },
                                 );

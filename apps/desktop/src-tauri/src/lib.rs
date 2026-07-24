@@ -6,7 +6,8 @@ use eastmoney::{
     request_accessibility_permission, set_follow_enabled, set_manual_stock,
 };
 use quant_service::{
-    QuantServiceState, get_quant_service_status, get_stock_diagnosis, restart_quant_service,
+    QuantServiceState, get_quant_service_status, get_stock_diagnosis, get_stock_research,
+    restart_quant_service,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -23,7 +24,8 @@ pub fn run() {
             clear_manual_stock,
             get_quant_service_status,
             restart_quant_service,
-            get_stock_diagnosis
+            get_stock_diagnosis,
+            get_stock_research
         ])
         .setup(|app| {
             eastmoney::start_monitor(app.handle().clone());

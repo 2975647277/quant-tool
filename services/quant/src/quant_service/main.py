@@ -11,7 +11,10 @@ from .models import (
     HealthResponse,
     P2DataReport,
     P3ResearchReport,
+    ResearchCoverage,
     ServiceState,
+    StockContext,
+    StockResearchView,
 )
 from .research.demo import build_p3_demo_report
 
@@ -49,7 +52,7 @@ def health(_: Session) -> HealthResponse:
     return HealthResponse(
         status=ServiceState.OK,
         service_version=__version__,
-        mode="mock-diagnosis+local-research",
+        mode="historical-research",
     )
 
 
@@ -89,6 +92,92 @@ def p3_research_real(_: Session) -> P3ResearchReport:
     if report is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="P3 real-data report not found; run pnpm research:p2",
+            detail="P3 real-data report not found; run pnpm research:p3:real",
         )
     return report
+
+
+@app.get("/v1/stocks/{code}/research", response_model=StockResearchView)
+def stock_research(
+    code: str,
+    _: Session,
+    name: Annotated[str | None, Query(max_length=20)] = None,
+) -> StockResearchView:
+    if not _stock_code_pattern.fullmatch(code):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="stock code must contain exactly 6 digits",
+        )
+    store = ArtifactStore()
+    p2_report = store.load_latest_p2_report()
+    p3_report = store.load_latest_p3_report()
+    if p2_report is None or p3_report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="real research artifacts not found; run pnpm research:p2",
+        )
+    if p2_report.data_version != p3_report.data_version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="P2 and P3 data versions do not match; rerun pnpm research:p3:real",
+        )
+    model = next(
+        (
+            result
+            for result in p3_report.model_results
+            if result.model_version == "lightgbm-lambdarank-v1"
+        ),
+        None,
+    )
+    if model is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="LightGBM real research result is unavailable",
+        )
+    universe_codes = store.load_universe_codes(p2_report.data_version)
+    top20_rank = next(
+        (
+            index
+            for index, holding in enumerate(p3_report.latest_top20, start=1)
+            if holding.code == code
+        ),
+        None,
+    )
+    holding = p3_report.latest_top20[top20_rank - 1] if top20_rank is not None else None
+    if holding is not None:
+        coverage = ResearchCoverage.SELECTED_TOP20
+        coverage_label = f"历史快照 Top 20 · 第 {top20_rank} 名"
+    elif code in universe_codes:
+        coverage = ResearchCoverage.COVERED_NOT_SELECTED
+        coverage_label = "研究池内 · 未进入历史 Top 20"
+    else:
+        coverage = ResearchCoverage.NOT_COVERED
+        coverage_label = "当前30只研究样本未覆盖"
+    return StockResearchView(
+        stock=StockContext(code=code, name=name or code),
+        coverage=coverage,
+        coverage_label=coverage_label,
+        is_current_signal=False,
+        signal_date=p3_report.latest_signal_date,
+        top20_rank=top20_rank,
+        top20_score=holding.score if holding else None,
+        top20_weight=holding.weight if holding else None,
+        model_version=model.model_version,
+        data_version=p2_report.data_version,
+        data_start_date=p2_report.start_date,
+        data_end_date=p2_report.end_date,
+        universe_count=p2_report.universe_count,
+        factor_dates=p2_report.factor_dates,
+        rank_ic=model.rank_ic,
+        icir=model.icir,
+        top_group_daily_positive_excess_rate=(model.top_group_daily_positive_excess_rate),
+        top_group_mean_excess_return=model.top_group_mean_excess_return,
+        top_group_max_drawdown=model.top_group_max_drawdown,
+        eligible_for_default=model.eligible_for_default,
+        admission_reasons=model.admission_reasons,
+        generated_at=p3_report.generated_at,
+        disclaimer=(
+            "真实历史样本外研究，不是当前交易信号。"
+            "研究池、财务修订链和历史行业数据门禁未解除，不构成投资建议。"
+        ),
+    )

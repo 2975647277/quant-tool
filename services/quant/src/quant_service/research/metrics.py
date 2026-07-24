@@ -14,6 +14,8 @@ class RankingMetrics:
     top_group_mean_excess_return: float
     top_group_cumulative_excess_return: float
     top_group_max_drawdown: float
+    top_group_individual_positive_excess_rate: float
+    top_group_daily_positive_excess_rate: float
     evaluated_dates: int
 
 
@@ -72,6 +74,7 @@ def calculate_ranking_metrics(
 
     daily_ics: list[float] = []
     top_returns: list[float] = []
+    top_individual_positive: list[bool] = []
     for trade_date in sorted(by_date):
         records = by_date[trade_date]
         scores = np.asarray([record.score for record in records], dtype=np.float64)
@@ -82,7 +85,9 @@ def calculate_ranking_metrics(
         daily_ics.append(spearman_rank_correlation(scores, targets))
         top_count = max(1, int(np.ceil(len(records) * top_fraction)))
         top_indices = np.argsort(scores, kind="stable")[-top_count:]
-        top_returns.append(float(np.mean(targets[top_indices])))
+        top_targets = targets[top_indices]
+        top_returns.append(float(np.mean(top_targets)))
+        top_individual_positive.extend(bool(value > 0) for value in top_targets)
 
     ic_array = np.asarray(daily_ics, dtype=np.float64)
     top_array = np.asarray(top_returns, dtype=np.float64)
@@ -97,5 +102,7 @@ def calculate_ranking_metrics(
         top_group_mean_excess_return=float(np.mean(top_array)),
         top_group_cumulative_excess_return=float(np.prod(1 + non_overlapping_top_returns) - 1),
         top_group_max_drawdown=max_drawdown(non_overlapping_top_returns),
+        top_group_individual_positive_excess_rate=float(np.mean(top_individual_positive)),
+        top_group_daily_positive_excess_rate=float(np.mean(top_array > 0)),
         evaluated_dates=len(by_date),
     )

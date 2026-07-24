@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -66,6 +66,8 @@ class RankingMetricResult(ApiModel):
     top_group_mean_excess_return: float
     top_group_cumulative_excess_return: float
     top_group_max_drawdown: float
+    top_group_individual_positive_excess_rate: float
+    top_group_daily_positive_excess_rate: float
     evaluated_dates: int
     eligible_for_default: bool
     admission_reasons: list[str]
@@ -128,5 +130,38 @@ class P3ResearchReport(ApiModel):
     backtest: BacktestSummary
     covered_constraints: list[str]
     default_model: str | None
+    latest_signal_date: date
+    generated_at: datetime
+    disclaimer: str
+
+
+class ResearchCoverage(StrEnum):
+    SELECTED_TOP20 = "selected_top20"
+    COVERED_NOT_SELECTED = "covered_not_selected"
+    NOT_COVERED = "not_covered"
+
+
+class StockResearchView(ApiModel):
+    stock: StockContext
+    coverage: ResearchCoverage
+    coverage_label: str
+    is_current_signal: bool
+    signal_date: date
+    top20_rank: int | None
+    top20_score: float | None
+    top20_weight: float | None
+    model_version: str
+    data_version: str
+    data_start_date: str
+    data_end_date: str
+    universe_count: int
+    factor_dates: int
+    rank_ic: float
+    icir: float
+    top_group_daily_positive_excess_rate: float
+    top_group_mean_excess_return: float
+    top_group_max_drawdown: float
+    eligible_for_default: bool
+    admission_reasons: list[str]
     generated_at: datetime
     disclaimer: str

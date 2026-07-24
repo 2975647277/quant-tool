@@ -55,6 +55,10 @@ def build_p3_real_report(
                 top_group_mean_excess_return=metrics.top_group_mean_excess_return,
                 top_group_cumulative_excess_return=metrics.top_group_cumulative_excess_return,
                 top_group_max_drawdown=metrics.top_group_max_drawdown,
+                top_group_individual_positive_excess_rate=(
+                    metrics.top_group_individual_positive_excess_rate
+                ),
+                top_group_daily_positive_excess_rate=(metrics.top_group_daily_positive_excess_rate),
                 evaluated_dates=metrics.evaluated_dates,
                 eligible_for_default=eligible,
                 admission_reasons=reasons,
@@ -119,6 +123,7 @@ def build_p3_real_report(
             "volume_capacity",
         ],
         default_model=default_candidate.model_version if default_candidate else None,
+        latest_signal_date=_to_date(latest.signal_date),
         generated_at=latest.predicted_at,
         disclaimer=(
             "本报告使用真实历史数据完成研究流程验证，不构成投资建议。"

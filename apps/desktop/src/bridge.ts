@@ -4,6 +4,7 @@ import type {
   DiagnosisResult,
   EastmoneyContext,
   QuantServiceStatus,
+  StockResearchView,
 } from "./types";
 
 const CONTEXT_EVENT = "eastmoney-context";
@@ -57,6 +58,13 @@ export function getStockDiagnosis(
   name: string,
 ): Promise<DiagnosisResult> {
   return invoke("get_stock_diagnosis", { code, name });
+}
+
+export function getStockResearch(
+  code: string,
+  name: string,
+): Promise<StockResearchView> {
+  return invoke("get_stock_research", { code, name });
 }
 
 export function onQuantServiceStatus(

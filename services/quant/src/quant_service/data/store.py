@@ -151,6 +151,12 @@ class ArtifactStore:
         path = self.root / "models" / version / "p3-real-report.json"
         return P3ResearchReport.model_validate_json(path.read_text(encoding="utf-8"))
 
+    def load_universe_codes(self, data_version: str) -> set[str]:
+        path = self.root / "raw" / data_version / "universe.jsonl"
+        if not path.exists():
+            return set()
+        return {str(payload["code"]) for payload in _read_jsonl(path)}
+
     def _latest_version(self, layer: str) -> str | None:
         pointer = self.root / layer / "latest.json"
         if not pointer.exists():
