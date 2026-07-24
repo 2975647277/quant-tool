@@ -33,6 +33,13 @@ def test_factor_dataset_is_real_finite_and_point_in_time() -> None:
     assert np.isfinite(result.dataset.features).all()
     assert np.isfinite(result.dataset.targets).all()
     assert len(result.dataset.unique_dates) > 40
+    assert len(result.latest_dataset.unique_dates) == 1
+    assert result.latest_dataset.unique_dates[0] == np.datetime64(
+        snapshot.index_bars[-1].trade_date
+    )
+    assert len(result.latest_dataset.codes) == 4
+    assert np.isfinite(result.latest_dataset.features).all()
+    assert np.all(result.latest_dataset.targets == 0)
     for trade_date, available_at in zip(
         result.dataset.dates,
         result.financial_available_at,
@@ -40,6 +47,9 @@ def test_factor_dataset_is_real_finite_and_point_in_time() -> None:
     ):
         assert available_at is not None
         assert available_at.date() <= trade_date.astype("datetime64[D]").astype(object)
+    for available_at in result.latest_financial_available_at:
+        assert available_at is not None
+        assert available_at.date() <= snapshot.index_bars[-1].trade_date
 
 
 def test_factor_builder_rejects_duplicate_market_rows() -> None:

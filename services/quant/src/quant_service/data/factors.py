@@ -64,9 +64,11 @@ class FactorQuality:
 @dataclass(frozen=True)
 class FactorBuildResult:
     dataset: RankingDataset
+    latest_dataset: RankingDataset
     market_bars: tuple[MarketBar, ...]
     quality: FactorQuality
     financial_available_at: tuple[datetime | None, ...]
+    latest_financial_available_at: tuple[datetime | None, ...]
 
 
 class PointInTimeFinancialIndex:
@@ -125,6 +127,13 @@ def build_factor_dataset(
         bars.sort(key=lambda item: item.trade_date)
 
     financial_index = PointInTimeFinancialIndex(snapshot.financials)
+    latest_dataset, latest_financial_available_at = _build_latest_factor_snapshot(
+        bars_by_code,
+        financial_index,
+        benchmark_dates[-1],
+        data_version,
+        config,
+    )
     raw_rows: list[tuple[date, str, list[float], float, datetime | None]] = []
     skipped_for_missing_future = 0
     for code, bars in sorted(bars_by_code.items()):
@@ -229,6 +238,7 @@ def build_factor_dataset(
     )
     return FactorBuildResult(
         dataset=dataset,
+        latest_dataset=latest_dataset,
         market_bars=tuple(build_market_bars(snapshot.bars)),
         quality=FactorQuality(
             errors=(),
@@ -238,7 +248,66 @@ def build_factor_dataset(
             imputed_values=imputed_values,
         ),
         financial_available_at=sorted_available,
+        latest_financial_available_at=latest_financial_available_at,
     )
+
+
+def _build_latest_factor_snapshot(
+    bars_by_code: dict[str, list[DailyBar]],
+    financial_index: PointInTimeFinancialIndex,
+    signal_date: date,
+    data_version: str,
+    config: FactorBuildConfig,
+) -> tuple[RankingDataset, tuple[datetime | None, ...]]:
+    rows: list[tuple[str, list[float], datetime | None]] = []
+    for code, bars in sorted(bars_by_code.items()):
+        by_date = {bar.trade_date: bar for bar in bars}
+        if signal_date not in by_date:
+            continue
+        stock_dates = sorted(by_date)
+        signal_position = stock_dates.index(signal_date)
+        if signal_position < config.lookback_days - 1:
+            continue
+        history_dates = stock_dates[
+            signal_position - config.lookback_days + 1 : signal_position + 1
+        ]
+        history = [by_date[value] for value in history_dates]
+        if len(history) != config.lookback_days:
+            continue
+        financial = financial_index.latest(code, signal_date)
+        previous = (
+            financial_index.previous_year(code, financial, signal_date)
+            if financial is not None
+            else None
+        )
+        rows.append(
+            (
+                code,
+                _raw_features(history, financial, previous),
+                financial.available_at if financial is not None else None,
+            )
+        )
+
+    if len(rows) < config.minimum_cross_section:
+        raise ValueError(
+            f"latest factor snapshot has only {len(rows)} rows; need {config.minimum_cross_section}"
+        )
+    matrix = np.asarray([row[1] for row in rows], dtype=np.float64)
+    missing = ~np.isfinite(matrix)
+    if np.any(np.mean(missing, axis=0) > config.max_missing_fraction):
+        raise ValueError("latest factor snapshot failed missing-value quality gate")
+    normalized = _normalize_cross_section(matrix, config)
+    dataset = RankingDataset(
+        dates=np.asarray([np.datetime64(signal_date.isoformat())] * len(rows)),
+        codes=np.asarray([row[0] for row in rows]),
+        features=normalized,
+        targets=np.zeros(len(rows), dtype=np.float64),
+        feature_names=CORE_FACTOR_NAMES,
+        data_version=data_version,
+        simulated=False,
+    ).sorted_by_date()
+    available_by_code = {row[0]: row[2] for row in rows}
+    return dataset, tuple(available_by_code[str(code)] for code in dataset.codes)
 
 
 def _raw_features(

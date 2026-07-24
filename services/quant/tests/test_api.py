@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -21,8 +21,8 @@ async def test_health_returns_service_mode(
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "serviceVersion": "0.4.0",
-        "mode": "historical-research",
+        "serviceVersion": "0.5.0",
+        "mode": "current-daily-research",
     }
 
 
@@ -58,6 +58,20 @@ async def test_diagnosis_rejects_invalid_code(
     )
 
     assert response.status_code == 422
+
+
+async def test_stock_research_rejects_index_code_collision(
+    client: AsyncClient,
+    session_headers: dict[str, str],
+) -> None:
+    response = await client.get(
+        "/v1/stocks/000001/research",
+        params={"name": "上证指数"},
+        headers=session_headers,
+    )
+
+    assert response.status_code == 422
+    assert "不是个股" in response.json()["detail"]
 
 
 async def test_p3_demo_exposes_models_backtest_and_no_default(
@@ -101,24 +115,27 @@ async def test_real_research_endpoints_report_missing_artifacts(
 
     p2 = await client.get("/v1/research/p2/status", headers=session_headers)
     p3 = await client.get("/v1/research/p3/real", headers=session_headers)
+    current = await client.get("/v1/research/p3/current", headers=session_headers)
 
     assert p2.status_code == 404
     assert p3.status_code == 404
+    assert current.status_code == 404
     assert "pnpm research:p2" in p2.json()["detail"]
 
 
 def write_research_artifacts(data_dir: Path) -> None:
     data_version = "p2-real-test"
     generated_at = datetime(2026, 7, 24, tzinfo=UTC).isoformat()
+    signal_date = (date.today() - timedelta(days=1)).isoformat()
     p2_report = {
         "status": "complete",
         "providerId": "test-provider",
         "usageScope": "test",
         "dataVersion": data_version,
         "startDate": "2020-01-01",
-        "endDate": "2025-12-31",
+        "endDate": signal_date,
         "indexCode": "000300.SH",
-        "universeCount": 3,
+        "universeCount": 25,
         "tradingDays": 1000,
         "stockBarCount": 3000,
         "financialRecordCount": 30,
@@ -178,6 +195,30 @@ def write_research_artifacts(data_dir: Path) -> None:
         "generatedAt": generated_at,
         "disclaimer": "test",
     }
+    current_signal = {
+        "status": "completed_with_admission_blockers",
+        "dataVersion": data_version,
+        "modelVersion": "lightgbm-lambdarank-v1",
+        "signalDate": signal_date,
+        "trainingStartDate": "2023-06-01",
+        "trainingEndDate": "2026-07-09",
+        "trainingSampleCount": 25000,
+        "universeCount": 25,
+        "rankings": [
+            {
+                "code": f"{index:06d}",
+                "rank": index,
+                "rankPercentile": index / 25,
+                "score": 1 - index / 25,
+                "weight": 0.05 if index <= 20 else None,
+            }
+            for index in range(1, 26)
+        ],
+        "eligibleForDefault": False,
+        "admissionReasons": ["max_drawdown_above_15_percent"],
+        "generatedAt": generated_at,
+        "disclaimer": "current daily research test",
+    }
     curated_dir = data_dir / "curated" / data_version
     model_dir = data_dir / "models" / data_version
     raw_dir = data_dir / "raw" / data_version
@@ -200,9 +241,13 @@ def write_research_artifacts(data_dir: Path) -> None:
         json.dumps(p3_report),
         encoding="utf-8",
     )
+    (model_dir / "current-signal.json").write_text(
+        json.dumps(current_signal),
+        encoding="utf-8",
+    )
     (raw_dir / "universe.jsonl").write_text(
         "\n".join(
-            json.dumps({"code": code, "name": code}) for code in ("000001", "000002", "000003")
+            json.dumps({"code": f"{index:06d}", "name": f"{index:06d}"}) for index in range(1, 26)
         ),
         encoding="utf-8",
     )
@@ -212,11 +257,11 @@ def write_research_artifacts(data_dir: Path) -> None:
     ("code", "expected_coverage", "expected_rank"),
     [
         ("000001", "selected_top20", 1),
-        ("000003", "covered_not_selected", None),
+        ("000025", "covered_not_selected", None),
         ("002463", "not_covered", None),
     ],
 )
-async def test_stock_research_reports_real_coverage_without_fabricated_signal(
+async def test_stock_research_reports_current_daily_coverage(
     client: AsyncClient,
     session_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
@@ -238,9 +283,37 @@ async def test_stock_research_reports_real_coverage_without_fabricated_signal(
     payload = response.json()
     assert payload["coverage"] == expected_coverage
     assert payload["top20Rank"] == expected_rank
-    assert payload["isCurrentSignal"] is False
-    assert payload["signalDate"] == "2025-12-17"
+    assert payload["isCurrentSignal"] is True
+    assert payload["signalDate"] == (date.today() - timedelta(days=1)).isoformat()
+    assert payload["signalAgeDays"] == 1
+    assert payload["trainingEndDate"] == "2026-07-09"
     assert payload["topGroupDailyPositiveExcessRate"] == pytest.approx(0.532)
+    if expected_coverage != "not_covered":
+        assert payload["currentRank"] is not None
+        assert payload["rankPercentile"] is not None
     if expected_coverage == "not_covered":
+        assert payload["currentRank"] is None
+        assert payload["currentScore"] is None
         assert payload["top20Score"] is None
         assert payload["top20Weight"] is None
+
+
+async def test_current_signal_endpoint_exposes_training_and_signal_dates(
+    client: AsyncClient,
+    session_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    write_research_artifacts(tmp_path)
+    monkeypatch.setenv("QUANT_DATA_DIR", str(tmp_path))
+
+    response = await client.get(
+        "/v1/research/p3/current",
+        headers=session_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["signalDate"] == (date.today() - timedelta(days=1)).isoformat()
+    assert payload["trainingEndDate"] == "2026-07-09"
+    assert len(payload["rankings"]) == 25

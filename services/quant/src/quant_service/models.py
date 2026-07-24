@@ -135,6 +135,30 @@ class P3ResearchReport(ApiModel):
     disclaimer: str
 
 
+class CurrentSignalHolding(ApiModel):
+    code: str = Field(pattern=r"^\d{6}$")
+    rank: int = Field(ge=1)
+    rank_percentile: float = Field(gt=0, le=1)
+    score: float
+    weight: float | None
+
+
+class CurrentSignalReport(ApiModel):
+    status: str
+    data_version: str
+    model_version: str
+    signal_date: date
+    training_start_date: date
+    training_end_date: date
+    training_sample_count: int
+    universe_count: int
+    rankings: list[CurrentSignalHolding]
+    eligible_for_default: bool
+    admission_reasons: list[str]
+    generated_at: datetime
+    disclaimer: str
+
+
 class ResearchCoverage(StrEnum):
     SELECTED_TOP20 = "selected_top20"
     COVERED_NOT_SELECTED = "covered_not_selected"
@@ -146,7 +170,13 @@ class StockResearchView(ApiModel):
     coverage: ResearchCoverage
     coverage_label: str
     is_current_signal: bool
+    signal_age_days: int
     signal_date: date
+    training_start_date: date
+    training_end_date: date
+    current_rank: int | None
+    current_score: float | None
+    rank_percentile: float | None
     top20_rank: int | None
     top20_score: float | None
     top20_weight: float | None

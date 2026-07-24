@@ -1,6 +1,9 @@
 import type { components } from "./generated";
 
 export type BacktestSummary = components["schemas"]["BacktestSummary"];
+export type CurrentSignalHolding =
+  components["schemas"]["CurrentSignalHolding"];
+export type CurrentSignalReport = components["schemas"]["CurrentSignalReport"];
 export type DiagnosisResult = components["schemas"]["DiagnosisResult"];
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type P2DataQuality = components["schemas"]["P2DataQuality"];

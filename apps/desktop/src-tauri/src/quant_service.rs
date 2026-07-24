@@ -174,6 +174,45 @@ pub fn get_stock_research(
     }
 }
 
+#[tauri::command]
+pub async fn refresh_current_research(code: String, name: String) -> Result<String, String> {
+    if code.len() != 6 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err("股票代码必须是 6 位数字".into());
+    }
+    if name.contains("指数") {
+        return Err("当前东方财富页面是指数，不执行个股模型更新".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let project_dir = service_project_dir();
+        let python = service_python(&project_dir);
+        if !python.exists() {
+            return Err(
+                "缺少 Python 3.12 本地服务环境，请在仓库根目录运行 pnpm prepare:quant".into(),
+            );
+        }
+        let output = Command::new(&python)
+            .arg(project_dir.join("scripts/run_p2_real.py"))
+            .args(["--include-code", "002463", "--include-code", &code])
+            .current_dir(&project_dir)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|error| format!("无法启动每日研究任务：{error}"))?;
+        if output.status.success() {
+            Ok("当前日频数据与模型已更新".into())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let detail = stderr
+                .lines()
+                .rev()
+                .find(|line| !line.trim().is_empty())
+                .unwrap_or("每日研究任务执行失败");
+            Err(format!("每日研究更新失败：{detail}"))
+        }
+    })
+    .await
+    .map_err(|error| format!("每日研究后台任务异常：{error}"))?
+}
+
 impl ServiceRuntime {
     fn connection(&self) -> Option<(String, String)> {
         if self.status.state != "ready" {
@@ -224,7 +263,7 @@ pub fn start_monitor(app: AppHandle) {
                                     &mut runtime,
                                     QuantServiceStatus {
                                         state: "ready",
-                                        message: "本地量化服务已连接（P2/P3 真实研究）".into(),
+                                        message: "本地量化服务已连接（当前日频研究）".into(),
                                         updated_at_ms: now_ms(),
                                     },
                                 );

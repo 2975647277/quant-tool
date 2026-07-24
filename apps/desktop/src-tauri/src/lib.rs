@@ -7,7 +7,7 @@ use eastmoney::{
 };
 use quant_service::{
     QuantServiceState, get_quant_service_status, get_stock_diagnosis, get_stock_research,
-    restart_quant_service,
+    refresh_current_research, restart_quant_service,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -25,7 +25,8 @@ pub fn run() {
             get_quant_service_status,
             restart_quant_service,
             get_stock_diagnosis,
-            get_stock_research
+            get_stock_research,
+            refresh_current_research
         ])
         .setup(|app| {
             eastmoney::start_monitor(app.handle().clone());

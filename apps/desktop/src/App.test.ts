@@ -10,7 +10,7 @@ vi.mock("./bridge", () => ({
     running: true,
     permissionGranted: true,
     mode: "accessibility",
-    stock: { code: "001309", name: "示例股票" },
+    stock: { code: "002463", name: "沪电股份" },
     frame: { x: 0, y: 0, width: 1200, height: 800 },
     followEnabled: true,
     observerActive: true,
@@ -20,23 +20,29 @@ vi.mock("./bridge", () => ({
   onEastmoneyContext: vi.fn().mockResolvedValue(() => undefined),
   getQuantServiceStatus: vi.fn().mockResolvedValue({
     state: "ready",
-    message: "本地量化服务已连接（P2/P3 真实研究）",
+    message: "本地量化服务已连接（当前日频研究）",
     updatedAtMs: Date.now(),
   }),
   onQuantServiceStatus: vi.fn().mockResolvedValue(() => undefined),
   getStockResearch: vi.fn().mockResolvedValue({
-    stock: { code: "001309", name: "示例股票" },
-    coverage: "not_covered",
-    coverageLabel: "当前30只研究样本未覆盖",
-    isCurrentSignal: false,
-    signalDate: "2025-12-17",
-    top20Rank: null,
-    top20Score: null,
-    top20Weight: null,
+    stock: { code: "002463", name: "沪电股份" },
+    coverage: "selected_top20",
+    coverageLabel: "当前日频 Top 20 · 第 8 名",
+    isCurrentSignal: true,
+    signalAgeDays: 1,
+    signalDate: "2026-07-23",
+    trainingStartDate: "2023-06-01",
+    trainingEndDate: "2026-07-09",
+    currentRank: 8,
+    currentScore: 0.37,
+    rankPercentile: 8 / 30,
+    top20Rank: 8,
+    top20Score: 0.37,
+    top20Weight: 0.05,
     modelVersion: "lightgbm-lambdarank-v1",
     dataVersion: "p2-real-test",
     dataStartDate: "2020-01-01",
-    dataEndDate: "2025-12-31",
+    dataEndDate: "2026-07-23",
     universeCount: 30,
     factorDates: 1000,
     rankIc: 0.039,
@@ -47,8 +53,9 @@ vi.mock("./bridge", () => ({
     eligibleForDefault: false,
     admissionReasons: ["max_drawdown_above_15_percent"],
     generatedAt: new Date().toISOString(),
-    disclaimer: "真实历史样本外研究，不是当前交易信号。",
+    disclaimer: "使用最新完整日线生成的实验性研究信号。",
   }),
+  refreshCurrentResearch: vi.fn().mockResolvedValue("当前日频数据与模型已更新"),
   restartQuantService: vi.fn(),
   refreshEastmoneyContext: vi.fn(),
   requestAccessibilityPermission: vi.fn(),
@@ -57,23 +64,24 @@ vi.mock("./bridge", () => ({
 }));
 
 describe("App", () => {
-  it("renders real P2/P3 research coverage without a fabricated stock score", async () => {
+  it("renders the current daily signal with explicit data timing", async () => {
     const wrapper = mount(App);
     await vi.waitFor(() => {
-      expect(wrapper.text()).toContain("示例股票");
-      expect(wrapper.text()).toContain("LightGBM 验证快照");
+      expect(wrapper.text()).toContain("沪电股份");
+      expect(wrapper.text()).toContain("LightGBM 当前排名");
     });
-    expect(wrapper.text()).toContain("001309");
-    expect(wrapper.text()).toContain("53");
-    expect(wrapper.text()).toContain("当前30只研究样本未覆盖");
-    expect(wrapper.text()).toContain("不生成个股分数或上涨概率");
-    expect(wrapper.text()).toContain("P2/P3 真实历史研究已连接");
+    expect(wrapper.text()).toContain("002463");
+    expect(wrapper.text()).toContain("第 8 / 30");
+    expect(wrapper.text()).toContain("2026/07/23 收盘");
+    expect(wrapper.text()).toContain("2026/07/09");
+    expect(wrapper.text()).toContain("当前日频研究已连接");
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
 
     await wrapper.get('[aria-label="打开设置"]').trigger("click");
     expect(wrapper.get('[role="dialog"]').text()).toContain("实时贴靠并同步高度");
     expect(wrapper.get('[role="dialog"]').text()).toContain("手动降级");
     expect(wrapper.get('[role="dialog"]').text()).toContain("本地研究服务");
+    expect(wrapper.get('[role="dialog"]').text()).toContain("更新当前日频数据");
     expect(wrapper.get('[role="dialog"]').text()).toContain("P2/P3 数据边界");
   });
 });

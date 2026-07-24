@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/research/p3/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** P3 Research Current */
+        get: operations["p3_research_current_v1_research_p3_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/stocks/{code}/research": {
         parameters: {
             query?: never;
@@ -124,6 +141,60 @@ export interface components {
             blockedOrderCount: number;
             /** Finalequity */
             finalEquity: number;
+        };
+        /** CurrentSignalHolding */
+        CurrentSignalHolding: {
+            /** Code */
+            code: string;
+            /** Rank */
+            rank: number;
+            /** Rankpercentile */
+            rankPercentile: number;
+            /** Score */
+            score: number;
+            /** Weight */
+            weight: number | null;
+        };
+        /** CurrentSignalReport */
+        CurrentSignalReport: {
+            /** Status */
+            status: string;
+            /** Dataversion */
+            dataVersion: string;
+            /** Modelversion */
+            modelVersion: string;
+            /**
+             * Signaldate
+             * Format: date
+             */
+            signalDate: string;
+            /**
+             * Trainingstartdate
+             * Format: date
+             */
+            trainingStartDate: string;
+            /**
+             * Trainingenddate
+             * Format: date
+             */
+            trainingEndDate: string;
+            /** Trainingsamplecount */
+            trainingSampleCount: number;
+            /** Universecount */
+            universeCount: number;
+            /** Rankings */
+            rankings: components["schemas"]["CurrentSignalHolding"][];
+            /** Eligiblefordefault */
+            eligibleForDefault: boolean;
+            /** Admissionreasons */
+            admissionReasons: string[];
+            /**
+             * Generatedat
+             * Format: date-time
+             */
+            generatedAt: string;
+            /** Disclaimer */
+            disclaimer: string;
         };
         /** DiagnosisResult */
         DiagnosisResult: {
@@ -350,11 +421,29 @@ export interface components {
             coverageLabel: string;
             /** Iscurrentsignal */
             isCurrentSignal: boolean;
+            /** Signalagedays */
+            signalAgeDays: number;
             /**
              * Signaldate
              * Format: date
              */
             signalDate: string;
+            /**
+             * Trainingstartdate
+             * Format: date
+             */
+            trainingStartDate: string;
+            /**
+             * Trainingenddate
+             * Format: date
+             */
+            trainingEndDate: string;
+            /** Currentrank */
+            currentRank: number | null;
+            /** Currentscore */
+            currentScore: number | null;
+            /** Rankpercentile */
+            rankPercentile: number | null;
             /** Top20Rank */
             top20Rank: number | null;
             /** Top20Score */
@@ -563,6 +652,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["P3ResearchReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    p3_research_current_v1_research_p3_current_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Quant-Session"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentSignalReport"];
                 };
             };
             /** @description Validation Error */

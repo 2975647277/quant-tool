@@ -3,7 +3,7 @@
   "info": {
     "title": "Quant Companion Local API",
     "description": "仅供本机桌面伴随应用调用的量化诊断与研究服务。",
-    "version": "0.4.0"
+    "version": "0.5.0"
   },
   "paths": {
     "/health": {
@@ -262,6 +262,52 @@
         }
       }
     },
+    "/v1/research/p3/current": {
+      "get": {
+        "summary": "P3 Research Current",
+        "operationId": "p3_research_current_v1_research_p3_current_get",
+        "parameters": [
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentSignalReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/stocks/{code}/research": {
       "get": {
         "summary": "Stock Research",
@@ -374,6 +420,133 @@
           "finalEquity"
         ],
         "title": "BacktestSummary"
+      },
+      "CurrentSignalHolding": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "title": "Code"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank"
+          },
+          "rankPercentile": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Rankpercentile"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "rank",
+          "rankPercentile",
+          "score",
+          "weight"
+        ],
+        "title": "CurrentSignalHolding"
+      },
+      "CurrentSignalReport": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "dataVersion": {
+            "type": "string",
+            "title": "Dataversion"
+          },
+          "modelVersion": {
+            "type": "string",
+            "title": "Modelversion"
+          },
+          "signalDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Signaldate"
+          },
+          "trainingStartDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Trainingstartdate"
+          },
+          "trainingEndDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Trainingenddate"
+          },
+          "trainingSampleCount": {
+            "type": "integer",
+            "title": "Trainingsamplecount"
+          },
+          "universeCount": {
+            "type": "integer",
+            "title": "Universecount"
+          },
+          "rankings": {
+            "items": {
+              "$ref": "#/components/schemas/CurrentSignalHolding"
+            },
+            "type": "array",
+            "title": "Rankings"
+          },
+          "eligibleForDefault": {
+            "type": "boolean",
+            "title": "Eligiblefordefault"
+          },
+          "admissionReasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Admissionreasons"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generatedat"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "dataVersion",
+          "modelVersion",
+          "signalDate",
+          "trainingStartDate",
+          "trainingEndDate",
+          "trainingSampleCount",
+          "universeCount",
+          "rankings",
+          "eligibleForDefault",
+          "admissionReasons",
+          "generatedAt",
+          "disclaimer"
+        ],
+        "title": "CurrentSignalReport"
       },
       "DiagnosisResult": {
         "properties": {
@@ -950,10 +1123,57 @@
             "type": "boolean",
             "title": "Iscurrentsignal"
           },
+          "signalAgeDays": {
+            "type": "integer",
+            "title": "Signalagedays"
+          },
           "signalDate": {
             "type": "string",
             "format": "date",
             "title": "Signaldate"
+          },
+          "trainingStartDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Trainingstartdate"
+          },
+          "trainingEndDate": {
+            "type": "string",
+            "format": "date",
+            "title": "Trainingenddate"
+          },
+          "currentRank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentrank"
+          },
+          "currentScore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentscore"
+          },
+          "rankPercentile": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rankpercentile"
           },
           "top20Rank": {
             "anyOf": [
@@ -1059,7 +1279,13 @@
           "coverage",
           "coverageLabel",
           "isCurrentSignal",
+          "signalAgeDays",
           "signalDate",
+          "trainingStartDate",
+          "trainingEndDate",
+          "currentRank",
+          "currentScore",
+          "rankPercentile",
           "top20Rank",
           "top20Score",
           "top20Weight",

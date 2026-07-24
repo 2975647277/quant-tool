@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
@@ -7,6 +8,7 @@ from . import __version__
 from .data.store import ArtifactStore
 from .mock_diagnosis import build_mock_diagnosis
 from .models import (
+    CurrentSignalReport,
     DiagnosisResult,
     HealthResponse,
     P2DataReport,
@@ -52,7 +54,7 @@ def health(_: Session) -> HealthResponse:
     return HealthResponse(
         status=ServiceState.OK,
         service_version=__version__,
-        mode="historical-research",
+        mode="current-daily-research",
     )
 
 
@@ -66,6 +68,11 @@ def stock_diagnosis(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="stock code must contain exactly 6 digits",
+        )
+    if name and "指数" in name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="当前东方财富页面是指数，不是个股，暂不生成个股排名",
         )
     return build_mock_diagnosis(code, name)
 
@@ -97,6 +104,17 @@ def p3_research_real(_: Session) -> P3ResearchReport:
     return report
 
 
+@app.get("/v1/research/p3/current", response_model=CurrentSignalReport)
+def p3_research_current(_: Session) -> CurrentSignalReport:
+    report = ArtifactStore().load_latest_current_signal()
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="current daily signal not found; run pnpm research:daily",
+        )
+    return report
+
+
 @app.get("/v1/stocks/{code}/research", response_model=StockResearchView)
 def stock_research(
     code: str,
@@ -108,18 +126,24 @@ def stock_research(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="stock code must contain exactly 6 digits",
         )
+    if name and "指数" in name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="当前东方财富页面是指数，不是个股，暂不生成个股排名",
+        )
     store = ArtifactStore()
     p2_report = store.load_latest_p2_report()
     p3_report = store.load_latest_p3_report()
-    if p2_report is None or p3_report is None:
+    current_signal = store.load_latest_current_signal()
+    if p2_report is None or p3_report is None or current_signal is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="real research artifacts not found; run pnpm research:p2",
+            detail="current research artifacts not found; run pnpm research:daily",
         )
-    if p2_report.data_version != p3_report.data_version:
+    if not (p2_report.data_version == p3_report.data_version == current_signal.data_version):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="P2 and P3 data versions do not match; rerun pnpm research:p3:real",
+            detail="P2, P3, and current signal versions do not match; rerun pnpm research:daily",
         )
     model = next(
         (
@@ -135,33 +159,39 @@ def stock_research(
             detail="LightGBM real research result is unavailable",
         )
     universe_codes = store.load_universe_codes(p2_report.data_version)
-    top20_rank = next(
-        (
-            index
-            for index, holding in enumerate(p3_report.latest_top20, start=1)
-            if holding.code == code
-        ),
+    holding = next(
+        (holding for holding in current_signal.rankings if holding.code == code),
         None,
     )
-    holding = p3_report.latest_top20[top20_rank - 1] if top20_rank is not None else None
-    if holding is not None:
+    top20_rank = holding.rank if holding is not None and holding.rank <= 20 else None
+    if top20_rank is not None:
         coverage = ResearchCoverage.SELECTED_TOP20
-        coverage_label = f"历史快照 Top 20 · 第 {top20_rank} 名"
-    elif code in universe_codes:
+        coverage_label = f"当前日频 Top 20 · 第 {top20_rank} 名"
+    elif holding is not None and code in universe_codes:
         coverage = ResearchCoverage.COVERED_NOT_SELECTED
-        coverage_label = "研究池内 · 未进入历史 Top 20"
+        coverage_label = f"当前研究池 · 第 {holding.rank}/{current_signal.universe_count} 名"
     else:
         coverage = ResearchCoverage.NOT_COVERED
-        coverage_label = "当前30只研究样本未覆盖"
+        coverage_label = f"当前{current_signal.universe_count}只研究样本未覆盖"
+    signal_age_days = max((date.today() - current_signal.signal_date).days, 0)
+    is_current_signal = (
+        signal_age_days <= 4 and current_signal.signal_date.isoformat() == p2_report.end_date
+    )
     return StockResearchView(
         stock=StockContext(code=code, name=name or code),
         coverage=coverage,
         coverage_label=coverage_label,
-        is_current_signal=False,
-        signal_date=p3_report.latest_signal_date,
+        is_current_signal=is_current_signal,
+        signal_age_days=signal_age_days,
+        signal_date=current_signal.signal_date,
+        training_start_date=current_signal.training_start_date,
+        training_end_date=current_signal.training_end_date,
+        current_rank=holding.rank if holding else None,
+        current_score=holding.score if holding else None,
+        rank_percentile=holding.rank_percentile if holding else None,
         top20_rank=top20_rank,
-        top20_score=holding.score if holding else None,
-        top20_weight=holding.weight if holding else None,
+        top20_score=holding.score if top20_rank is not None else None,
+        top20_weight=holding.weight if top20_rank is not None else None,
         model_version=model.model_version,
         data_version=p2_report.data_version,
         data_start_date=p2_report.start_date,
@@ -175,9 +205,6 @@ def stock_research(
         top_group_max_drawdown=model.top_group_max_drawdown,
         eligible_for_default=model.eligible_for_default,
         admission_reasons=model.admission_reasons,
-        generated_at=p3_report.generated_at,
-        disclaimer=(
-            "真实历史样本外研究，不是当前交易信号。"
-            "研究池、财务修订链和历史行业数据门禁未解除，不构成投资建议。"
-        ),
+        generated_at=current_signal.generated_at,
+        disclaimer=current_signal.disclaimer,
     )

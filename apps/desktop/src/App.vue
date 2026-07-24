@@ -8,6 +8,7 @@ import {
   onEastmoneyContext,
   onQuantServiceStatus,
   refreshEastmoneyContext,
+  refreshCurrentResearch,
   requestAccessibilityPermission,
   restartQuantService,
   setFollowEnabled,
@@ -24,8 +25,10 @@ const quantStatus = ref<QuantServiceStatus | null>(null);
 const research = ref<StockResearchView | null>(null);
 const actionLoading = ref(false);
 const researchLoading = ref(false);
+const researchRefreshLoading = ref(false);
 const error = ref("");
 const researchError = ref("");
+const researchRefreshMessage = ref("");
 const manualCode = ref("");
 const manualName = ref("");
 const settingsOpen = ref(false);
@@ -75,9 +78,16 @@ const formattedTime = computed(() => {
 });
 
 const scoreStyle = computed(() => ({
-  "--score": `${Math.round(
-    (research.value?.topGroupDailyPositiveExcessRate ?? 0) * 100,
-  )}%`,
+  "--score": `${
+    research.value?.rankPercentile
+      ? Math.round(
+          (1 -
+            research.value.rankPercentile +
+            1 / research.value.universeCount) *
+            100,
+        )
+      : 0
+  }%`,
 }));
 
 const coverageTone = computed(() => {
@@ -92,13 +102,31 @@ const coverageTone = computed(() => {
 });
 
 const signalDateLabel = computed(() => {
-  if (!research.value?.signalDate) return "未知日期";
+  return formatDate(research.value?.signalDate);
+});
+
+const trainingEndDateLabel = computed(() => {
+  return formatDate(research.value?.trainingEndDate);
+});
+
+const generatedTimeLabel = computed(() => {
+  if (!research.value?.generatedAt) return "未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(research.value.generatedAt));
+});
+
+function formatDate(value?: string) {
+  if (!value) return "未知日期";
   return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date(`${research.value.signalDate}T00:00:00+08:00`));
-});
+  }).format(new Date(`${value}T00:00:00+08:00`));
+}
 
 function percent(value: number, digits = 1) {
   return `${(value * 100).toFixed(digits)}%`;
@@ -157,6 +185,25 @@ async function restartService() {
   researchError.value = "";
   research.value = null;
   quantStatus.value = await restartQuantService();
+}
+
+async function refreshResearchData() {
+  const stock = context.value?.stock;
+  if (!stock) return;
+  researchRefreshLoading.value = true;
+  researchRefreshMessage.value = "";
+  researchError.value = "";
+  try {
+    researchRefreshMessage.value = await refreshCurrentResearch(
+      stock.code,
+      stock.name,
+    );
+    await loadResearch();
+  } catch (cause) {
+    researchError.value = String(cause);
+  } finally {
+    researchRefreshLoading.value = false;
+  }
 }
 
 function submitManualStock() {
@@ -291,34 +338,53 @@ onBeforeUnmount(() => {
     <section v-if="research" class="card diagnosis-card">
       <div class="diagnosis-heading">
         <div>
-          <div class="card-label">真实样本外研究 · 非实时信号</div>
-          <h2>LightGBM 验证快照</h2>
+          <div class="card-label">
+            最新完整日线 ·
+            {{ research.isCurrentSignal ? "当前有效" : "需要刷新" }}
+          </div>
+          <h2>LightGBM 当前排名</h2>
         </div>
         <div class="score-ring" :style="scoreStyle">
-          <strong>{{
-            Math.round(research.topGroupDailyPositiveExcessRate * 100)
-          }}</strong>
-          <span>跑赢率%</span>
+          <strong>{{ research.currentRank ?? "--" }}</strong>
+          <span>/{{ research.universeCount }} 排名</span>
         </div>
+      </div>
+
+      <div
+        v-if="!research.isCurrentSignal"
+        class="signal-stale"
+        role="status"
+      >
+        <span>信号已滞后 {{ research.signalAgeDays }} 天。</span>
+        <button
+          class="refresh-button"
+          :disabled="researchRefreshLoading"
+          @click="refreshResearchData"
+        >
+          {{ researchRefreshLoading ? "更新中…" : "立即更新" }}
+        </button>
       </div>
 
       <div class="metric-grid">
         <div>
-          <span>当前股票覆盖</span>
-          <strong>{{ research.coverageLabel }}</strong>
+          <span>当前排名</span>
+          <strong>
+            {{
+              research.currentRank
+                ? `第 ${research.currentRank} / ${research.universeCount}`
+                : "未覆盖"
+            }}
+          </strong>
+        </div>
+        <div>
+          <span>历史逐日跑赢率</span>
+          <strong>{{
+            percent(research.topGroupDailyPositiveExcessRate, 1)
+          }}</strong>
         </div>
         <div>
           <span>样本外 Rank IC</span>
           <strong>{{ research.rankIc.toFixed(3) }}</strong>
-        </div>
-        <div>
-          <span>Top组平均超额</span>
-          <strong
-            :class="{ positive: research.topGroupMeanExcessReturn >= 0 }"
-          >
-            {{ research.topGroupMeanExcessReturn >= 0 ? "+" : ""
-            }}{{ percent(research.topGroupMeanExcessReturn, 2) }}
-          </strong>
         </div>
         <div>
           <span>Top组最大回撤</span>
@@ -339,7 +405,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="research-coverage">
-        <div class="card-label">当前股票</div>
+        <div class="card-label">最新股票信号</div>
         <div class="coverage-title">
           <strong>{{ research.coverageLabel }}</strong>
           <span class="risk-badge" :class="coverageTone">
@@ -353,15 +419,32 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <p v-if="research.coverage === 'selected_top20'">
-          该股票出现在 {{ signalDateLabel }} 的历史末期 Top 20
-          快照中；这不是今天的推荐。
+          使用 {{ signalDateLabel }} 收盘数据生成，当前实验排名为第
+          {{ research.currentRank }} 名；模型尚未通过准入，不是买入建议。
         </p>
         <p v-else-if="research.coverage === 'covered_not_selected'">
-          该股票属于30只研究样本，但未进入 {{ signalDateLabel }} 的历史 Top 20。
+          该股票属于当前 {{ research.universeCount }} 只研究样本，排名第
+          {{ research.currentRank }}，未进入 Top 20。
         </p>
         <p v-else>
-          当前股票不在这次30只研究样本内，因此不生成个股分数或上涨概率。
+          当前股票不在这次 {{ research.universeCount }}
+          只研究样本内，因此不生成个股排名或上涨概率。
         </p>
+      </div>
+
+      <div class="signal-timing">
+        <div>
+          <span>行情数据截至</span>
+          <strong>{{ signalDateLabel }} 收盘</strong>
+        </div>
+        <div>
+          <span>训练标签截至</span>
+          <strong>{{ trainingEndDateLabel }}</strong>
+        </div>
+        <div>
+          <span>本次生成</span>
+          <strong>{{ generatedTimeLabel }}</strong>
+        </div>
       </div>
 
       <div class="explanation-panel">
@@ -411,7 +494,7 @@ onBeforeUnmount(() => {
 
     <p v-if="error && !settingsOpen" class="error-message">{{ error }}</p>
 
-    <footer>P2/P3 真实历史研究已连接；非实时信号，不构成任何投资建议</footer>
+    <footer>当前日频研究已连接；非盘中实时信号，不构成任何投资建议</footer>
 
     <Transition name="settings">
       <div
@@ -524,12 +607,29 @@ onBeforeUnmount(() => {
             >
               重启本地服务
             </button>
+            <button
+              class="secondary-button service-restart"
+              :disabled="researchRefreshLoading || !context?.stock"
+              @click="refreshResearchData"
+            >
+              {{
+                researchRefreshLoading
+                  ? "正在获取数据并训练…"
+                  : "更新当前日频数据"
+              }}
+            </button>
+            <p v-if="researchRefreshMessage" class="refresh-success">
+              {{ researchRefreshMessage }}
+            </p>
+            <p v-if="researchError" class="error-message">
+              {{ researchError }}
+            </p>
           </section>
 
           <section class="settings-section boundary-section">
             <div class="card-label">P2/P3 数据边界</div>
             <p class="muted">
-              当前展示真实历史样本外验证结果，不是当日预测；研究池只有30只样本，未通过准入的模型不生成个股概率，也不执行任何交易。
+              当前排名使用最新完整日线生成，行情每日收盘后更新；不是分钟级盘中模型。研究池目前只有30只样本，未通过准入的模型不生成上涨概率，也不执行任何交易。
             </p>
           </section>
 

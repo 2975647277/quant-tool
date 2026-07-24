@@ -16,6 +16,7 @@ class P2PipelineConfig:
     end_date: date
     index_code: str = "000300"
     universe_size: int = 30
+    required_codes: tuple[str, ...] = ()
     factor_config: FactorBuildConfig = FactorBuildConfig()
 
     def __post_init__(self) -> None:
@@ -23,6 +24,10 @@ class P2PipelineConfig:
             raise ValueError("start_date must precede end_date")
         if self.universe_size < self.factor_config.minimum_cross_section:
             raise ValueError("universe_size cannot be smaller than minimum_cross_section")
+        if len(set(self.required_codes)) > self.universe_size:
+            raise ValueError("required_codes cannot exceed universe_size")
+        if any(len(code) != 6 or not code.isdigit() for code in self.required_codes):
+            raise ValueError("required_codes must contain six-digit stock codes")
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,7 @@ def run_p2_pipeline(
         available_members,
         config.index_code,
         config.universe_size,
+        config.required_codes,
     )
     codes = [member.code for member in members]
     bars = provider.fetch_daily_bars(codes, config.start_date, config.end_date)
@@ -54,6 +60,7 @@ def run_p2_pipeline(
     )
     financials = provider.fetch_financials(codes, config.end_date)
     acquired_at = utc_now()
+    actual_end_date = max(bar.trade_date for bar in index_bars)
     snapshot = MarketSnapshot(
         provenance=provider.provenance(),
         universe=tuple(members),
@@ -76,7 +83,7 @@ def run_p2_pipeline(
         usage_scope="local_noncommercial_research",
         data_version=data_version,
         start_date=config.start_date.isoformat(),
-        end_date=config.end_date.isoformat(),
+        end_date=actual_end_date.isoformat(),
         index_code=config.index_code,
         universe_count=len(members),
         trading_days=len({bar.trade_date for bar in index_bars}),
@@ -110,17 +117,30 @@ def _select_pilot_universe(
     members: list[UniverseMember],
     index_code: str,
     size: int,
+    required_codes: tuple[str, ...] = (),
 ) -> list[UniverseMember]:
     unique = {member.code: member for member in members}
     if len(unique) < size:
         raise ValueError(f"provider returned only {len(unique)} unique members; need {size}")
+    observed_at = max(member.observed_at for member in unique.values())
+    required = {
+        code: unique.get(code)
+        or UniverseMember(
+            code=code,
+            name=code,
+            exchange=("上海证券交易所" if code.startswith(("5", "6", "9")) else "深圳证券交易所"),
+            observed_at=observed_at,
+        )
+        for code in required_codes
+    }
     ranked = sorted(
-        unique.values(),
+        (member for code, member in unique.items() if code not in required),
         key=lambda member: hashlib.sha256(
             f"{index_code}:{member.code}".encode(),
         ).digest(),
     )
-    return sorted(ranked[:size], key=lambda member: member.code)
+    selected = [*required.values(), *ranked[: size - len(required)]]
+    return sorted(selected, key=lambda member: member.code)
 
 
 def _data_version(snapshot: MarketSnapshot, config: P2PipelineConfig) -> str:
@@ -130,6 +150,7 @@ def _data_version(snapshot: MarketSnapshot, config: P2PipelineConfig) -> str:
         "index": config.index_code,
         "start": config.start_date.isoformat(),
         "end": config.end_date.isoformat(),
+        "required_codes": sorted(set(config.required_codes)),
         "factors": list(config.factor_config.__dict__.values()),
     }
     digest.update(json.dumps(header, sort_keys=True).encode())

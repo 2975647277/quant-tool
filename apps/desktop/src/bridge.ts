@@ -67,6 +67,13 @@ export function getStockResearch(
   return invoke("get_stock_research", { code, name });
 }
 
+export function refreshCurrentResearch(
+  code: string,
+  name: string,
+): Promise<string> {
+  return invoke("refresh_current_research", { code, name });
+}
+
 export function onQuantServiceStatus(
   callback: (status: QuantServiceStatus) => void,
 ): Promise<UnlistenFn> {
