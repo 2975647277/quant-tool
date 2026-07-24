@@ -34,6 +34,11 @@ vi.mock("./bridge", () => ({
     trendSummary: "价格与中期均线结构偏多。",
     supportPrice: 102.2,
     resistancePrice: 119.8,
+    latestVolumeShares: 1400000,
+    volumeMa5: 1200000,
+    volumeMa20: 1000000,
+    volumeRatio: 1.4,
+    volumeChangeRate: 1 / 6,
     latestRsi14: 61.2,
     latestMacdHistogram: 0.18,
     points: [
@@ -44,6 +49,8 @@ vi.mock("./bridge", () => ({
         lowPrice: 107,
         closePrice: 111,
         volumeShares: 1000000,
+        volumeMa5: 900000,
+        volumeMa20: 800000,
         ma5: 109,
         ma20: 106,
         ma60: 101,
@@ -59,6 +66,8 @@ vi.mock("./bridge", () => ({
         lowPrice: 110,
         closePrice: 113,
         volumeShares: 1200000,
+        volumeMa5: 1000000,
+        volumeMa20: 900000,
         ma5: 110,
         ma20: 107,
         ma60: 102,
@@ -74,6 +83,8 @@ vi.mock("./bridge", () => ({
         lowPrice: 112,
         closePrice: 115,
         volumeShares: 1400000,
+        volumeMa5: 1200000,
+        volumeMa20: 1000000,
         ma5: 111,
         ma20: 108,
         ma60: 103,
@@ -162,6 +173,11 @@ describe("App", () => {
     expect(wrapper.text()).toContain("关键节点与价格");
     expect(wrapper.text()).toContain("收盘已站上颈线");
     expect(wrapper.text()).toContain("RSI14");
+    expect(wrapper.text()).toContain("成交量统计");
+    expect(wrapper.text()).toContain("当日成交量");
+    expect(wrapper.text()).toContain("5日平均量");
+    expect(wrapper.text()).toContain("20日平均量");
+    expect(wrapper.text()).toContain("量比（对20日）");
     expect(wrapper.text()).toContain("第 8 / 30");
     expect(wrapper.text()).toContain("2026/07/23 收盘");
     expect(wrapper.text()).toContain("2026/07/09");

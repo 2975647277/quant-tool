@@ -281,6 +281,10 @@ export interface components {
             closePrice: number;
             /** Volumeshares */
             volumeShares: number;
+            /** Volumema5 */
+            volumeMa5: number | null;
+            /** Volumema20 */
+            volumeMa20: number | null;
             /** Ma5 */
             ma5: number | null;
             /** Ma20 */
@@ -479,6 +483,16 @@ export interface components {
             supportPrice: number;
             /** Resistanceprice */
             resistancePrice: number;
+            /** Latestvolumeshares */
+            latestVolumeShares: number;
+            /** Volumema5 */
+            volumeMa5: number;
+            /** Volumema20 */
+            volumeMa20: number;
+            /** Volumeratio */
+            volumeRatio: number;
+            /** Volumechangerate */
+            volumeChangeRate: number | null;
             /** Latestrsi14 */
             latestRsi14: number | null;
             /** Latestmacdhistogram */

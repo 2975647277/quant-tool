@@ -172,6 +172,8 @@ class KlinePoint(ApiModel):
     low_price: float
     close_price: float
     volume_shares: int
+    volume_ma5: float | None
+    volume_ma20: float | None
     ma5: float | None
     ma20: float | None
     ma60: float | None
@@ -216,6 +218,11 @@ class StockChartView(ApiModel):
     trend_summary: str
     support_price: float
     resistance_price: float
+    latest_volume_shares: int
+    volume_ma5: float
+    volume_ma20: float
+    volume_ratio: float
+    volume_change_rate: float | None
     latest_rsi14: float | None
     latest_macd_histogram: float | None
     points: list[KlinePoint]

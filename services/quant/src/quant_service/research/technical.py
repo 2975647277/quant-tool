@@ -43,6 +43,8 @@ def build_stock_chart(
     ma5 = _rolling_mean(closes, 5)
     ma20 = _rolling_mean(closes, 20)
     ma60 = _rolling_mean(closes, 60)
+    volume_ma5 = _rolling_mean(volumes, 5)
+    volume_ma20 = _rolling_mean(volumes, 20)
     rsi14 = _rsi(closes, 14)
     macd, macd_signal, macd_histogram = _macd(closes)
     points = [
@@ -53,6 +55,8 @@ def build_stock_chart(
             low_price=bar.low_price,
             close_price=bar.close_price,
             volume_shares=bar.volume_shares,
+            volume_ma5=_finite_or_none(volume_ma5[index]),
+            volume_ma20=_finite_or_none(volume_ma20[index]),
             ma5=_finite_or_none(ma5[index]),
             ma20=_finite_or_none(ma20[index]),
             ma60=_finite_or_none(ma60[index]),
@@ -74,6 +78,9 @@ def build_stock_chart(
     )
     recent = ordered[-20:]
     visible = points[-display_limit:]
+    latest_volume = int(volumes[-1])
+    latest_volume_ma5 = float(volume_ma5[-1])
+    latest_volume_ma20 = float(volume_ma20[-1])
     return StockChartView(
         stock=stock,
         data_version=data_version,
@@ -84,6 +91,11 @@ def build_stock_chart(
         trend_summary=trend_summary,
         support_price=float(min(bar.low_price for bar in recent)),
         resistance_price=float(max(bar.high_price for bar in recent)),
+        latest_volume_shares=latest_volume,
+        volume_ma5=latest_volume_ma5,
+        volume_ma20=latest_volume_ma20,
+        volume_ratio=(latest_volume / latest_volume_ma20 if latest_volume_ma20 > 0 else 0),
+        volume_change_rate=(float(latest_volume / volumes[-2] - 1) if volumes[-2] > 0 else None),
         latest_rsi14=_finite_or_none(rsi14[-1]),
         latest_macd_histogram=_finite_or_none(macd_histogram[-1]),
         points=visible,

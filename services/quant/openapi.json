@@ -3,7 +3,7 @@
   "info": {
     "title": "Quant Companion Local API",
     "description": "仅供本机桌面伴随应用调用的量化诊断与研究服务。",
-    "version": "0.6.0"
+    "version": "0.6.1"
   },
   "paths": {
     "/health": {
@@ -801,6 +801,28 @@
             "type": "integer",
             "title": "Volumeshares"
           },
+          "volumeMa5": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volumema5"
+          },
+          "volumeMa20": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volumema20"
+          },
           "ma5": {
             "anyOf": [
               {
@@ -887,6 +909,8 @@
           "lowPrice",
           "closePrice",
           "volumeShares",
+          "volumeMa5",
+          "volumeMa20",
           "ma5",
           "ma20",
           "ma60",
@@ -1333,6 +1357,33 @@
             "type": "number",
             "title": "Resistanceprice"
           },
+          "latestVolumeShares": {
+            "type": "integer",
+            "title": "Latestvolumeshares"
+          },
+          "volumeMa5": {
+            "type": "number",
+            "title": "Volumema5"
+          },
+          "volumeMa20": {
+            "type": "number",
+            "title": "Volumema20"
+          },
+          "volumeRatio": {
+            "type": "number",
+            "title": "Volumeratio"
+          },
+          "volumeChangeRate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volumechangerate"
+          },
           "latestRsi14": {
             "anyOf": [
               {
@@ -1385,6 +1436,11 @@
           "trendSummary",
           "supportPrice",
           "resistancePrice",
+          "latestVolumeShares",
+          "volumeMa5",
+          "volumeMa20",
+          "volumeRatio",
+          "volumeChangeRate",
           "latestRsi14",
           "latestMacdHistogram",
           "points",

@@ -21,7 +21,7 @@ async def test_health_returns_service_mode(
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "serviceVersion": "0.6.0",
+        "serviceVersion": "0.6.1",
         "mode": "current-daily-research",
     }
 
@@ -384,6 +384,13 @@ async def test_stock_chart_exposes_real_bars_indicators_and_patterns(
     assert payload["points"][-1]["ma5"] is not None
     assert payload["points"][-1]["ma20"] is not None
     assert payload["points"][-1]["ma60"] is not None
+    assert payload["points"][-1]["volumeMa5"] is not None
+    assert payload["points"][-1]["volumeMa20"] is not None
+    assert payload["latestVolumeShares"] > 0
+    assert payload["volumeMa5"] > 0
+    assert payload["volumeMa20"] > 0
+    assert payload["volumeRatio"] > 0
+    assert payload["volumeChangeRate"] is not None
     assert payload["latestRsi14"] is not None
     assert payload["patterns"]
     assert {"startDate", "startPrice", "endDate", "endPrice"}.issubset(

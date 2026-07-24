@@ -87,7 +87,14 @@ const priceBounds = computed(() => {
 });
 
 const maxVolume = computed(() =>
-  Math.max(...points.value.map((point) => point.volumeShares), 1),
+  Math.max(
+    ...points.value.flatMap((point) => [
+      point.volumeShares,
+      point.volumeMa5 ?? 0,
+      point.volumeMa20 ?? 0,
+    ]),
+    1,
+  ),
 );
 const maxMacd = computed(() =>
   Math.max(
@@ -145,6 +152,21 @@ function movingAveragePath(key: "ma5" | "ma20" | "ma60") {
   return path.trim();
 }
 
+function volumeAveragePath(key: "volumeMa5" | "volumeMa20") {
+  let path = "";
+  let drawing = false;
+  points.value.forEach((point, index) => {
+    const value = point[key];
+    if (value == null) {
+      drawing = false;
+      return;
+    }
+    path += `${drawing ? "L" : "M"}${x(index).toFixed(2)},${volumeY(value).toFixed(2)} `;
+    drawing = true;
+  });
+  return path.trim();
+}
+
 function patternX(tradeDate: string) {
   const exact = dateIndex.value.get(tradeDate);
   if (exact != null) return x(exact);
@@ -178,6 +200,17 @@ function money(value: number | null | undefined) {
 
 function indicator(value: number | null | undefined, digits = 2) {
   return value == null ? "--" : value.toFixed(digits);
+}
+
+function formatVolume(shares: number | null | undefined) {
+  if (shares == null) return "--";
+  if (shares >= 100_000_000) return `${(shares / 100_000_000).toFixed(2)}亿股`;
+  return `${(shares / 1_000_000).toFixed(1)}万手`;
+}
+
+function signedPercent(value: number | null | undefined) {
+  if (value == null) return "--";
+  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
 }
 
 function shortDate(value: string) {
@@ -346,6 +379,15 @@ function handlePointerMove(event: PointerEvent) {
       <span class="ma20">MA20 {{ money(displayedPoint?.ma20) }}</span>
       <span class="ma60">MA60 {{ money(displayedPoint?.ma60) }}</span>
     </div>
+    <div class="volume-readout">
+      <strong>成交量 {{ formatVolume(displayedPoint?.volumeShares) }}</strong>
+      <span class="vma5"
+        >VMA5 {{ formatVolume(displayedPoint?.volumeMa5) }}</span
+      >
+      <span class="vma20"
+        >VMA20 {{ formatVolume(displayedPoint?.volumeMa20) }}</span
+      >
+    </div>
 
     <svg
       class="kline-svg"
@@ -437,6 +479,14 @@ function handlePointerMove(event: PointerEvent) {
       <path class="ma-line ma5-line" :d="movingAveragePath('ma5')" />
       <path class="ma-line ma20-line" :d="movingAveragePath('ma20')" />
       <path class="ma-line ma60-line" :d="movingAveragePath('ma60')" />
+      <path
+        class="volume-average volume-ma5-line"
+        :d="volumeAveragePath('volumeMa5')"
+      />
+      <path
+        class="volume-average volume-ma20-line"
+        :d="volumeAveragePath('volumeMa20')"
+      />
 
       <g
         v-if="activePattern"
@@ -479,7 +529,9 @@ function handlePointerMove(event: PointerEvent) {
         :y1="volumeTop - 6"
         :y2="volumeTop - 6"
       />
-      <text class="panel-label" :x="left" :y="volumeTop - 9">VOL</text>
+      <text class="panel-label" :x="left" :y="volumeTop - 9">
+        VOL · VMA5 · VMA20
+      </text>
       <line
         class="macd-zero"
         :x1="left"
@@ -515,29 +567,44 @@ function handlePointerMove(event: PointerEvent) {
       </g>
     </svg>
 
-    <div class="indicator-strip">
+    <div class="volume-section-title">
+      <strong>成交量统计</strong>
+      <span>1万手 = 100万股</span>
+    </div>
+    <div class="indicator-strip volume-stats">
       <div>
-        <span>RSI14</span>
-        <strong>{{ indicator(chart.latestRsi14, 1) }}</strong>
+        <span>当日成交量</span>
+        <strong>{{ formatVolume(chart.latestVolumeShares) }}</strong>
       </div>
       <div>
-        <span>MACD柱</span>
+        <span>较前一日</span>
         <strong
           :class="{
-            positive: (chart.latestMacdHistogram ?? 0) >= 0,
-            negative: (chart.latestMacdHistogram ?? 0) < 0,
+            positive: (chart.volumeChangeRate ?? 0) >= 0,
+            negative: (chart.volumeChangeRate ?? 0) < 0,
           }"
         >
-          {{ indicator(chart.latestMacdHistogram, 3) }}
+          {{ signedPercent(chart.volumeChangeRate) }}
         </strong>
       </div>
       <div>
-        <span>20日支撑</span>
-        <strong>{{ money(chart.supportPrice) }}</strong>
+        <span>5日平均量</span>
+        <strong>{{ formatVolume(chart.volumeMa5) }}</strong>
       </div>
       <div>
-        <span>20日压力</span>
-        <strong>{{ money(chart.resistancePrice) }}</strong>
+        <span>20日平均量</span>
+        <strong>{{ formatVolume(chart.volumeMa20) }}</strong>
+      </div>
+      <div>
+        <span>量比（对20日）</span>
+        <strong>{{ indicator(chart.volumeRatio, 2) }}×</strong>
+      </div>
+      <div>
+        <span>RSI14 / MACD柱</span>
+        <strong>
+          {{ indicator(chart.latestRsi14, 1) }} /
+          {{ indicator(chart.latestMacdHistogram, 3) }}
+        </strong>
       </div>
     </div>
 
@@ -962,6 +1029,26 @@ h2 {
   color: #bd84ff;
 }
 
+.volume-readout {
+  display: flex;
+  gap: 12px;
+  margin-top: 7px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+}
+
+.volume-readout strong {
+  color: #d1deea;
+}
+
+.volume-readout .vma5 {
+  color: #f0a85e;
+}
+
+.volume-readout .vma20 {
+  color: #55c7d9;
+}
+
 .kline-svg {
   display: block;
   width: 100%;
@@ -1031,6 +1118,20 @@ h2 {
   stroke: #bd84ff;
 }
 
+.volume-average {
+  fill: none;
+  stroke-width: 1.1;
+  vector-effect: non-scaling-stroke;
+}
+
+.volume-ma5-line {
+  stroke: #f0a85e;
+}
+
+.volume-ma20-line {
+  stroke: #55c7d9;
+}
+
 .pattern-overlay line {
   fill: none;
   stroke-width: 1.8;
@@ -1096,6 +1197,23 @@ h2 {
   vector-effect: non-scaling-stroke;
 }
 
+.volume-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.volume-section-title strong {
+  color: #c8d8e7;
+  font-size: 11px;
+}
+
+.volume-section-title span {
+  color: #587087;
+  font-size: 9px;
+}
+
 .indicator-strip {
   display: grid;
   margin-top: 5px;
@@ -1115,7 +1233,7 @@ h2 {
   border-right: 1px solid rgb(105 142 182 / 13%);
 }
 
-.indicator-strip > div:nth-child(-n + 2) {
+.indicator-strip > div:nth-child(-n + 4) {
   border-bottom: 1px solid rgb(105 142 182 / 13%);
 }
 
