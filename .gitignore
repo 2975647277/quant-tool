@@ -8,3 +8,5 @@ apps/desktop/src-tauri/gen/
 .venv/
 __pycache__/
 *.log
+/data/*
+!/data/README.md

@@ -55,6 +55,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/research/p2/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** P2 Data Status */
+        get: operations["p2_data_status_v1_research_p2_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/research/p3/real": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** P3 Research Real */
+        get: operations["p3_research_real_v1_research_p3_real_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -124,6 +158,62 @@ export interface components {
             serviceVersion: string;
             /** Mode */
             mode: string;
+        };
+        /** P2DataQuality */
+        P2DataQuality: {
+            /** Errors */
+            errors: string[];
+            /** Warnings */
+            warnings: string[];
+            /** Droppeddates */
+            droppedDates: number;
+            /** Droppedrows */
+            droppedRows: number;
+            /** Imputedvalues */
+            imputedValues: number;
+        };
+        /** P2DataReport */
+        P2DataReport: {
+            /** Status */
+            status: string;
+            /** Providerid */
+            providerId: string;
+            /** Usagescope */
+            usageScope: string;
+            /** Dataversion */
+            dataVersion: string;
+            /** Startdate */
+            startDate: string;
+            /** Enddate */
+            endDate: string;
+            /** Indexcode */
+            indexCode: string;
+            /** Universecount */
+            universeCount: number;
+            /** Tradingdays */
+            tradingDays: number;
+            /** Stockbarcount */
+            stockBarCount: number;
+            /** Financialrecordcount */
+            financialRecordCount: number;
+            /** Factorrows */
+            factorRows: number;
+            /** Factordates */
+            factorDates: number;
+            /** Featurenames */
+            featureNames: string[];
+            /** Pointintimeenforced */
+            pointInTimeEnforced: boolean;
+            /** Universesurvivorshipsafe */
+            universeSurvivorshipSafe: boolean;
+            quality: components["schemas"]["P2DataQuality"];
+            /**
+             * Generatedat
+             * Format: date-time
+             */
+            generatedAt: string;
+            /** Disclaimer */
+            disclaimer: string;
         };
         /** P3ResearchReport */
         P3ResearchReport: {
@@ -310,6 +400,68 @@ export interface operations {
         };
     };
     p3_research_demo_v1_research_p3_demo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Quant-Session"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P3ResearchReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    p2_data_status_v1_research_p2_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Quant-Session"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["P2DataReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    p3_research_real_v1_research_p3_real_get: {
         parameters: {
             query?: never;
             header?: {

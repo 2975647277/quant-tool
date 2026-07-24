@@ -1,12 +1,14 @@
 [project]
 name = "quant-service"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local-only quantitative diagnosis service for the desktop companion"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "akshare>=1.18.40,<2",
     "fastapi",
     "lightgbm>=4.7,<5",
     "numpy>=2.4,<3",
+    "pandas>=3,<4",
     "scikit-learn>=1.8,<2",
     "uvicorn",
 ]

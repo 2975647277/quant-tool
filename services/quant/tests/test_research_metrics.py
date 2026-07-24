@@ -8,8 +8,9 @@ from quant_service.research.metrics import (
     max_drawdown,
     spearman_rank_correlation,
 )
+from quant_service.research.models import RuleScoreModel
 from quant_service.research.portfolio import build_top_n_portfolios
-from quant_service.research.types import PredictionRecord
+from quant_service.research.types import PredictionRecord, RankingDataset
 
 
 def _record(day: str, index: int, score: float, target: float) -> PredictionRecord:
@@ -59,3 +60,42 @@ def test_top_20_portfolio_is_equal_weighted_and_versioned() -> None:
     assert portfolio.holdings[0].code == "600024"
     assert portfolio.model_version == "test-model"
     assert portfolio.data_version == "test-data"
+
+
+def test_rule_model_supports_p2_factor_names() -> None:
+    feature_names = (
+        "momentum_5",
+        "momentum_20",
+        "momentum_60",
+        "reversal_5",
+        "volatility_20",
+        "downside_volatility_20",
+        "max_drawdown_60",
+        "price_to_high_60",
+        "turnover_mean_20",
+        "turnover_change_5_20",
+        "amount_log_mean_20",
+        "amihud_20",
+        "roe_pit",
+        "debt_to_assets_pit",
+        "revenue_growth_pit",
+    )
+    dataset = RankingDataset(
+        dates=np.asarray([np.datetime64("2024-01-02")] * 2),
+        codes=np.asarray(["600001", "600002"]),
+        features=np.asarray(
+            [
+                [0.2, 0.1, 0.3, -0.2, 0.1, 0.2, 0.1, -0.1, 0, 0.1, 0.2, 0.1, 0.3, 0.2, 0.4],
+                [-0.2, -0.1, -0.3, 0.2, 0.2, 0.1, 0.2, -0.2, 0.1, 0, 0.1, 0.2, 0.2, 0.3, 0.1],
+            ],
+            dtype=np.float64,
+        ),
+        targets=np.asarray([0.01, -0.01], dtype=np.float64),
+        feature_names=feature_names,
+        data_version="p2-test",
+        simulated=False,
+    )
+    model = RuleScoreModel()
+    model.fit(dataset)
+
+    assert np.isfinite(model.predict(dataset)).all()

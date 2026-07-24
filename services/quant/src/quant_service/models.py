@@ -86,6 +86,36 @@ class BacktestSummary(ApiModel):
     final_equity: float
 
 
+class P2DataQuality(ApiModel):
+    errors: list[str]
+    warnings: list[str]
+    dropped_dates: int
+    dropped_rows: int
+    imputed_values: int
+
+
+class P2DataReport(ApiModel):
+    status: str
+    provider_id: str
+    usage_scope: str
+    data_version: str
+    start_date: str
+    end_date: str
+    index_code: str
+    universe_count: int
+    trading_days: int
+    stock_bar_count: int
+    financial_record_count: int
+    factor_rows: int
+    factor_dates: int
+    feature_names: list[str]
+    point_in_time_enforced: bool
+    universe_survivorship_safe: bool
+    quality: P2DataQuality
+    generated_at: datetime
+    disclaimer: str
+
+
 class P3ResearchReport(ApiModel):
     status: str
     simulated: bool

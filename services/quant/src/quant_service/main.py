@@ -4,10 +4,12 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 
 from . import __version__
+from .data.store import ArtifactStore
 from .mock_diagnosis import build_mock_diagnosis
 from .models import (
     DiagnosisResult,
     HealthResponse,
+    P2DataReport,
     P3ResearchReport,
     ServiceState,
 )
@@ -47,7 +49,7 @@ def health(_: Session) -> HealthResponse:
     return HealthResponse(
         status=ServiceState.OK,
         service_version=__version__,
-        mode="mock",
+        mode="mock-diagnosis+local-research",
     )
 
 
@@ -68,3 +70,25 @@ def stock_diagnosis(
 @app.get("/v1/research/p3/demo", response_model=P3ResearchReport)
 def p3_research_demo(_: Session) -> P3ResearchReport:
     return build_p3_demo_report()
+
+
+@app.get("/v1/research/p2/status", response_model=P2DataReport)
+def p2_data_status(_: Session) -> P2DataReport:
+    report = ArtifactStore().load_latest_p2_report()
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="P2 real-data artifacts not found; run pnpm research:p2",
+        )
+    return report
+
+
+@app.get("/v1/research/p3/real", response_model=P3ResearchReport)
+def p3_research_real(_: Session) -> P3ResearchReport:
+    report = ArtifactStore().load_latest_p3_report()
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="P3 real-data report not found; run pnpm research:p2",
+        )
+    return report

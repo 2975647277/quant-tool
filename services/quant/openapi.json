@@ -3,7 +3,7 @@
   "info": {
     "title": "Quant Companion Local API",
     "description": "仅供本机桌面伴随应用调用的量化诊断与研究服务。",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/health": {
@@ -128,6 +128,98 @@
       "get": {
         "summary": "P3 Research Demo",
         "operationId": "p3_research_demo_v1_research_p3_demo_get",
+        "parameters": [
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/P3ResearchReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/research/p2/status": {
+      "get": {
+        "summary": "P2 Data Status",
+        "operationId": "p2_data_status_v1_research_p2_status_get",
+        "parameters": [
+          {
+            "name": "X-Quant-Session",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Quant-Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/P2DataReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/research/p3/real": {
+      "get": {
+        "summary": "P3 Research Real",
+        "operationId": "p3_research_real_v1_research_p3_real_get",
         "parameters": [
           {
             "name": "X-Quant-Session",
@@ -352,6 +444,151 @@
           "mode"
         ],
         "title": "HealthResponse"
+      },
+      "P2DataQuality": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "droppedDates": {
+            "type": "integer",
+            "title": "Droppeddates"
+          },
+          "droppedRows": {
+            "type": "integer",
+            "title": "Droppedrows"
+          },
+          "imputedValues": {
+            "type": "integer",
+            "title": "Imputedvalues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "errors",
+          "warnings",
+          "droppedDates",
+          "droppedRows",
+          "imputedValues"
+        ],
+        "title": "P2DataQuality"
+      },
+      "P2DataReport": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "providerId": {
+            "type": "string",
+            "title": "Providerid"
+          },
+          "usageScope": {
+            "type": "string",
+            "title": "Usagescope"
+          },
+          "dataVersion": {
+            "type": "string",
+            "title": "Dataversion"
+          },
+          "startDate": {
+            "type": "string",
+            "title": "Startdate"
+          },
+          "endDate": {
+            "type": "string",
+            "title": "Enddate"
+          },
+          "indexCode": {
+            "type": "string",
+            "title": "Indexcode"
+          },
+          "universeCount": {
+            "type": "integer",
+            "title": "Universecount"
+          },
+          "tradingDays": {
+            "type": "integer",
+            "title": "Tradingdays"
+          },
+          "stockBarCount": {
+            "type": "integer",
+            "title": "Stockbarcount"
+          },
+          "financialRecordCount": {
+            "type": "integer",
+            "title": "Financialrecordcount"
+          },
+          "factorRows": {
+            "type": "integer",
+            "title": "Factorrows"
+          },
+          "factorDates": {
+            "type": "integer",
+            "title": "Factordates"
+          },
+          "featureNames": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Featurenames"
+          },
+          "pointInTimeEnforced": {
+            "type": "boolean",
+            "title": "Pointintimeenforced"
+          },
+          "universeSurvivorshipSafe": {
+            "type": "boolean",
+            "title": "Universesurvivorshipsafe"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/P2DataQuality"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generatedat"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "providerId",
+          "usageScope",
+          "dataVersion",
+          "startDate",
+          "endDate",
+          "indexCode",
+          "universeCount",
+          "tradingDays",
+          "stockBarCount",
+          "financialRecordCount",
+          "factorRows",
+          "factorDates",
+          "featureNames",
+          "pointInTimeEnforced",
+          "universeSurvivorshipSafe",
+          "quality",
+          "generatedAt",
+          "disclaimer"
+        ],
+        "title": "P2DataReport"
       },
       "P3ResearchReport": {
         "properties": {

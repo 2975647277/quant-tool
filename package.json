@@ -8,7 +8,9 @@
   "scripts": {
     "prepare:quant": "uv sync --project services/quant --locked --no-editable --reinstall-package quant-service",
     "contracts:generate": "pnpm prepare:quant && services/quant/.venv/bin/python services/quant/scripts/export_openapi.py && pnpm --dir packages/contracts generate",
+    "research:p2": "pnpm prepare:quant && services/quant/.venv/bin/python services/quant/scripts/run_p2_real.py",
     "research:p3": "pnpm prepare:quant && services/quant/.venv/bin/python services/quant/scripts/run_p3_demo.py",
+    "research:p3:real": "pnpm prepare:quant && services/quant/.venv/bin/python services/quant/scripts/run_p3_real.py",
     "dev": "pnpm prepare:quant && pnpm --dir apps/desktop tauri dev",
     "build": "pnpm prepare:quant && pnpm --dir apps/desktop tauri build",
     "check": "pnpm prepare:quant && pnpm check:quant && pnpm check:desktop",

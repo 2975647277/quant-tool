@@ -17,8 +17,8 @@ async def test_health_returns_service_mode(
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "serviceVersion": "0.2.0",
-        "mode": "mock",
+        "serviceVersion": "0.3.0",
+        "mode": "mock-diagnosis+local-research",
     }
 
 
@@ -81,3 +81,19 @@ async def test_p3_demo_exposes_models_backtest_and_no_default(
         result["dataVersion"] == payload["dataVersion"] and result["predictedAt"]
         for result in payload["modelResults"]
     )
+
+
+async def test_real_research_endpoints_report_missing_artifacts(
+    client: AsyncClient,
+    session_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: object,
+) -> None:
+    monkeypatch.setenv("QUANT_DATA_DIR", str(tmp_path))
+
+    p2 = await client.get("/v1/research/p2/status", headers=session_headers)
+    p3 = await client.get("/v1/research/p3/real", headers=session_headers)
+
+    assert p2.status_code == 404
+    assert p3.status_code == 404
+    assert "pnpm research:p2" in p2.json()["detail"]

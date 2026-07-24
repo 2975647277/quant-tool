@@ -31,6 +31,21 @@ class RuleScoreModel:
             "low_volatility": 0.14,
             "liquidity": 0.1,
             "reversal": 0.08,
+            "momentum_5": 0.06,
+            "momentum_20": 0.14,
+            "momentum_60": 0.12,
+            "reversal_5": 0.06,
+            "volatility_20": -0.08,
+            "downside_volatility_20": -0.08,
+            "max_drawdown_60": -0.08,
+            "price_to_high_60": 0.06,
+            "turnover_mean_20": 0.02,
+            "turnover_change_5_20": 0.04,
+            "amount_log_mean_20": 0.04,
+            "amihud_20": -0.04,
+            "roe_pit": 0.12,
+            "debt_to_assets_pit": -0.08,
+            "revenue_growth_pit": 0.12,
         }
         self._feature_names: tuple[str, ...] | None = None
 

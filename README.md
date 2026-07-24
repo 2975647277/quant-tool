@@ -6,9 +6,10 @@
 
 - P0：东方财富进程、股票代码、窗口位置识别与实时跟随已经实现；
 - P1：Tauri + Vue 桌面端、FastAPI 本地服务、模拟诊断评分卡和服务异常恢复已经实现；
-- P3 工程核心：Walk-Forward、三种排序模型、Top 20 组合和 A 股约束回测已经实现，等待 P2 真实数据重新验收；
+- P2 研究数据层：真实日线、指数、Point-in-Time 财务数据和 15 个因子已经接入；
+- P3 真实研究验证：Walk-Forward、三种排序模型、Top 20 组合和 A 股约束回测已经跑通；
 - 当前评分为确定性模拟数据，只用于验证产品闭环；
-- 尚未接入真实行情、财务数据、因子、模型、回测或交易。
+- 真实研究结果尚未接入桌面评分卡，不提供自动交易，当前模型因数据准入门禁不得成为默认模型。
 
 ## 本地开发
 
@@ -38,6 +39,18 @@ pnpm dev
 pnpm check
 ```
 
+更新 P2 真实研究数据并重新运行 P3：
+
+```bash
+pnpm research:p2
+```
+
+只使用已经下载的 P2 工件重跑 P3：
+
+```bash
+pnpm research:p3:real
+```
+
 生成 OpenAPI 和 TypeScript 共享协议：
 
 ```bash
@@ -60,4 +73,6 @@ pnpm build
 - 本地 API 仅监听回环地址，并使用每次启动生成的会话令牌；
 - 当前模拟评分不构成证券投资建议。
 
-详细计划见 [TASK.md](./TASK.md)，P0/P1 验证说明见 `apps/desktop/`。
+详细计划见 [TASK.md](./TASK.md)，P2/P3 说明见
+[services/quant/P2.md](./services/quant/P2.md) 和
+[services/quant/P3.md](./services/quant/P3.md)。
